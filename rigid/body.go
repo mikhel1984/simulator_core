@@ -52,13 +52,9 @@ func MakeTree(model *urdf.Model) *Link {
     jnt := new(Joint)
     jnt.Src = &model.Joints[i]
     lnk := links[model.Joints[i].Parent.Name] 
-    jnt.Parent = lnk 
-    if lnk.Joints == nil {
-      lnk.Joints = make([]*Joint,1)
-      lnk.Joints[0] = jnt
-    } else {
-      lnk.Joints = append(lnk.Joints, jnt) 
-    }
+    jnt.Parent = lnk     
+    lnk.Joints = append(lnk.Joints, jnt) 
+    
     lnk = links[model.Joints[i].Child.Name]
     lnk.Parent = jnt
     jnt.Child = lnk     
