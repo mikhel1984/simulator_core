@@ -3,6 +3,7 @@ package main
 import (
   "fmt"
   "./urdf"
+  "./rigid"
 )
 
 func main() {
@@ -18,5 +19,8 @@ func main() {
   }
   for i := 0; i < len(model.Joints); i++ {
     fmt.Println(model.Joints[i].Name)
-  }  
+  }   
+  
+  lnk := rigid.MakeTree(model)
+  print(lnk.Src.Name)
 }

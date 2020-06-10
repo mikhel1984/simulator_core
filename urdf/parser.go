@@ -4,18 +4,11 @@ import (
     "encoding/xml"    
     "io/ioutil"
     "os"
-    "strings"
-    "strconv" 
+    //"strings"
+    //"strconv" 
 )
 
-func stringToList(s string) []float64 {
-  nums := strings.Split(s," ")
-  res := make([]float64,3,3) 
-  for i := 0; i < len(nums); i++ {
-    res[i],_ = strconv.ParseFloat(nums[i], 64)
-  }
-  return res 
-}
+
 
 type Model struct {
   XMLName xml.Name `xml:"robot"`
@@ -23,7 +16,7 @@ type Model struct {
   Links  []Link    `xml:"link"` 
 }
 
-func (m *Model) ParseData() {
+/* func (m *Model) ParseData() {
   for i := 0; i < len(m.Joints); i++ {
     m.Joints[i].parseData()
   }
@@ -31,7 +24,7 @@ func (m *Model) ParseData() {
     m.Links[i].parseData() 
   }
 }
-
+ */
 type Joint struct {
   XMLName xml.Name `xml:"joint"` 
   Type    string   `xml:"type,attr"`
@@ -44,25 +37,23 @@ type Joint struct {
   Dynamics Dynamics `xml:"dynamics"`   
 }
 
-func (v *Joint) parseData() {
+/* func (v *Joint) parseData() {
   v.Origin.parseData()
   v.Axis.parseData() 
   v.Limit.parseData() 
   v.Dynamics.parseData()
-}
+} */
 
 type Origin_ struct {
   XMLName xml.Name `xml:"origin"`
-  xyz     string   `xml:"xyz,attr"`
-  rpy     string   `xml:"rpy,attr"`
-  Xyz     []float64
-  Rpy     []float64 
+  Xyz     string   `xml:"xyz,attr"`
+  Rpy     string   `xml:"rpy,attr"`  
 }
 
-func (v *Origin_) parseData() {
+/* func (v *Origin_) parseData() {
   v.Xyz = stringToList(v.xyz) 
   v.Rpy = stringToList(v.rpy)
-}
+} */
 
 type Parent struct {
   XMLName xml.Name `xml:"parent"`
@@ -76,50 +67,43 @@ type Child struct {
 
 type Axis_ struct {
   XMLName xml.Name `xml:"axis"`
-  xyz     string   `xml:"xyz,attr"`
-  Ind     int     
+  Xyz     string   `xml:"xyz,attr"`
 }
 
-func (v *Axis_) parseData() {
+/* func (v *Axis_) parseData() {
   nums := strings.Split(v.xyz," ") 
   for i := 0; i < len(nums); i++ {
     if nums[i] == "1" {
       v.Ind = i 
     }
   }
-}
+} */
 
 type Limit_ struct {
   XMLName xml.Name `xml:"limit"`
-  effort  string   `xml:"effort,attr"`
-  lower   string   `xml:"lower,attr"`
-  upper   string   `xml:"upper,attr"`
-  velocity string  `xml:"velocity,attr"`
-  Effort  float64
-  Lower   float64 
-  Upper   float64
-  Velocity float64 
+  Effort  string   `xml:"effort,attr"`
+  Lower   string   `xml:"lower,attr"`
+  Upper   string   `xml:"upper,attr"`
+  Velocity string  `xml:"velocity,attr"`
 }
 
-func (v *Limit_) parseData() {
+/* func (v *Limit_) parseData() {
   v.Effort,_ = strconv.ParseFloat(v.effort,64)
   v.Lower,_ = strconv.ParseFloat(v.lower,64)
   v.Upper,_ = strconv.ParseFloat(v.upper,64)
   v.Velocity,_ = strconv.ParseFloat(v.velocity,64)
 }
-
+ */
 type Dynamics struct {
   XMLName  xml.Name `xml:"dynamics"`
-  damping  string   `xml:"damping,attr"`
-  friction string  `xml:"friction,attr"`  
-  Damping  float64
-  Friction float64
+  Damping  string   `xml:"damping,attr"`
+  Friction string  `xml:"friction,attr"`
 }
 
-func (v *Dynamics) parseData() {
+/* func (v *Dynamics) parseData() {
   v.Damping,_ = strconv.ParseFloat(v.damping,64)
   v.Friction,_ = strconv.ParseFloat(v.friction,64)
-}
+} */
 
 type Link struct {
   XMLName xml.Name `xml:"link"`
@@ -129,21 +113,21 @@ type Link struct {
   Inertial Inertial `xml:"inertial"`  
 }
 
-func (l *Link) parseData() {
+/* func (l *Link) parseData() {
   l.Visual.parseData()
   l.Collision.parseData()
   l.Inertial.parseData() 
 }
-
+ */
 type Visual struct {
   XMLName xml.Name `xml:"visual"`
   Origin  Origin_   `xml:"origin"`
   Geometry Geometry `xml:"geometry"` 
 }
 
-func (v *Visual) parseData() {
+/* func (v *Visual) parseData() {
   v.Origin.parseData()
-}
+} */
 
 type Collision struct {
   XMLName xml.Name `xml:"collision"`
@@ -151,9 +135,9 @@ type Collision struct {
   Geometry Geometry `xml:"geometry"` 
 }
 
-func (v *Collision) parseData() {
+/* func (v *Collision) parseData() {
   v.Origin.parseData() 
-}
+} */
 
 type Geometry struct {
   XMLName xml.Name `xml:"geometry"` 
@@ -172,35 +156,33 @@ type Inertial struct {
   Inertia Inertia  `xml:"inertia"` 
 }
 
-func (v *Inertial) parseData() {
+/* func (v *Inertial) parseData() {
   v.Mass.parseData()
   v.Origin.parseData()
   v.Inertia.parseData() 
-}
+} */
 
 type Mass struct {
   XMLName xml.Name `xml:"mass"`
-  value   string   `xml:"value,attr"`
-  Value   float64
+  Value   string   `xml:"value,attr"`
 }
 
-func (v *Mass) parseData() {
+/* func (v *Mass) parseData() {
   v.Value,_ = strconv.ParseFloat(v.value,64) 
-}
+} */
 
 type Inertia struct {
   XMLName xml.Name `xml:"inertia"`
-  ixx     string   `xml:"ixx,attr"`
-  ixy     string   `xml:"ixy,attr"`
-  ixz     string   `xml:"ixz,attr"`
-  iyy     string   `xml:"iyy,attr"`
-  iyz     string   `xml:"iyz,attr"`
-  izz     string   `xml:"izz,attr"`
-  Value   []float64 
+  Ixx     string   `xml:"ixx,attr"`
+  Ixy     string   `xml:"ixy,attr"`
+  Ixz     string   `xml:"ixz,attr"`
+  Iyy     string   `xml:"iyy,attr"`
+  Iyz     string   `xml:"iyz,attr"`
+  Izz     string   `xml:"izz,attr"`  
 }
 
 
-func (v *Inertia) parseData() {
+/* func (v *Inertia) parseData() {
   res := make([]float64,6,6)
   res[0],_ = strconv.ParseFloat(v.ixx,64)
   res[1],_ = strconv.ParseFloat(v.ixy,64)
@@ -209,7 +191,7 @@ func (v *Inertia) parseData() {
   res[4],_ = strconv.ParseFloat(v.iyz,64)
   res[5],_ = strconv.ParseFloat(v.izz,64)
   v.Value = res 
-}
+} */
 
 func GetFromFile(fname string) (*Model,error) {
   urdfFile, err := os.Open(fname)
@@ -221,10 +203,9 @@ func GetFromFile(fname string) (*Model,error) {
   
   byteValue, _ := ioutil.ReadAll(urdfFile)
   
-  model := new(Model)  
-  
+  model := new(Model)    
   xml.Unmarshal(byteValue, model) 
-  model.ParseData() 
+  //model.ParseData() 
   
   return model, nil  
 }
