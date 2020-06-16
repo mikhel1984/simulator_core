@@ -15,29 +15,29 @@ import (
 
 type Link struct {
   // source 
-  Src *urdf.Link 
-  // current state 
-  Position float64
-  Orientation float64
-  Velocity float64
-  Acceleration float64 
+  Src          *urdf.Link 
   // tree 
-  Joints []*Joint 
-  Parent *Joint 
+  Joints       []*Joint 
+  Parent       *Joint 
+  // current state
+  State         Transform
 } 
 
 type Joint struct {
   // source 
-  Src *urdf.Joint 
-  // current state 
-  Angle float64 
+  Src          *urdf.Joint 
   // tree 
-  Parent *Link 
-  Child  *Link 
+  Parent       *Link 
+  Child        *Link 
+  // type 
+  Type          JointType
+  // current angle
+  Angle         float64 
+  Velocity      float64
+  Acceleration  float64 
+  // constant transformation 
+  Trans         Transform 
 }
-
-
-
 
 func MakeTree(model *urdf.Model) *Link {
   // read links 
