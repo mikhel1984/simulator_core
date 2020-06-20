@@ -4,11 +4,18 @@ import (
     "encoding/xml"    
     "io/ioutil"
     "os"
-    //"strings"
-    //"strconv" 
+    "strings"
+    "strconv" 
 )
 
-
+func stringToList(s string) []float64 {
+  nums := strings.Split(s," ")
+  res := make([]float64,3,3) 
+  for i := 0; i < len(nums); i++ {
+    res[i],_ = strconv.ParseFloat(nums[i], 64)
+  }
+  return res 
+} 
 
 type Model struct {
   XMLName xml.Name `xml:"robot"`
@@ -50,6 +57,14 @@ type Origin_ struct {
   Rpy     string   `xml:"rpy,attr"`  
 }
 
+func (v *Joint) GetXyz() []float64 {
+  return stringToList(v.Origin.Xyz) 
+}
+
+func (v *Joint) GetRpy() []float64 {
+  return stringToList(v.Origin.Rpy) 
+}
+
 /* func (v *Origin_) parseData() {
   v.Xyz = stringToList(v.xyz) 
   v.Rpy = stringToList(v.rpy)
@@ -70,14 +85,15 @@ type Axis_ struct {
   Xyz     string   `xml:"xyz,attr"`
 }
 
-/* func (v *Axis_) parseData() {
-  nums := strings.Split(v.xyz," ") 
+func (v *Joint) GetAxis() int {
+  nums := strings.Split(v.Axis.Xyz," ") 
   for i := 0; i < len(nums); i++ {
     if nums[i] == "1" {
-      v.Ind = i 
+      return i
     }
   }
-} */
+  return 0
+} 
 
 type Limit_ struct {
   XMLName xml.Name `xml:"limit"`
@@ -85,6 +101,12 @@ type Limit_ struct {
   Lower   string   `xml:"lower,attr"`
   Upper   string   `xml:"upper,attr"`
   Velocity string  `xml:"velocity,attr"`
+}
+
+func (v *Joint) GetLimits() (float64,float64) {
+  lo,_ := strconv.ParseFloat(v.Limit.Lower,64) 
+  up,_ := strconv.ParseFloat(v.Limit.Upper,64)
+  return lo, up
 }
 
 /* func (v *Limit_) parseData() {

@@ -4,14 +4,7 @@ import (
   "../urdf"
 )
 
-/* func stringToList(s string) []float64 {
-  nums := strings.Split(s," ")
-  res := make([]float64,3,3) 
-  for i := 0; i < len(nums); i++ {
-    res[i],_ = strconv.ParseFloat(nums[i], 64)
-  }
-  return res 
-} */
+
 
 type Link struct {
   // source 
@@ -23,6 +16,12 @@ type Link struct {
   State         Transform
 } 
 
+func linkFromModel(m *urdf.Link) *Link {
+  lnk := new(Link) 
+  lnk.Src = m
+  return lnk
+}
+
 type Joint struct {
   // source 
   Src          *urdf.Joint 
@@ -31,26 +30,54 @@ type Joint struct {
   Child        *Link 
   // type 
   Type          JointType
-  // current angle
+  // current state
   Angle         float64 
   Velocity      float64
   Acceleration  float64 
   // constant transformation 
   Trans         Transform 
+  Limit         [2]float64
+}
+
+func jointFromModel(m *urdf.Joint) *Joint {
+  jnt := new(Joint) 
+  jnt.Src = m 
+  if m.Type == "revolute" {
+    a := m.GetAxis() 
+    jnt.Type = JointType(3+a) 
+    jnt.Limit[0], jnt.Limit[1] = m.GetLimits()
+  } else if m.Type == "prismatic" {
+    a := m.GetAxis()
+    jnt.Type = JointType(a) 
+    jnt.Limit[0], jnt.Limit[1] = m.GetLimits()
+  } else {
+    jnt.Type = joint_Fixed;
+  }
+  // transformation to next joint
+  v := m.GetXyz() 
+  jnt.Trans.Pos = Txyz(v[0],v[1],v[2]) 
+  v = m.GetRpy()
+  jnt.Trans.Rot = RPY(v[0],v[1],v[2])
+  jnt.Trans.Rot.Print()
+  jnt.Trans.Pos.Print()
+  return jnt
 }
 
 func MakeTree(model *urdf.Model) *Link {
   // read links 
   links := make(map[string]*Link)   
   for i := 0; i < len(model.Links); i++ {
-    lnk := new(Link)  
-    lnk.Src = &model.Links[i]
-    links[ model.Links[i].Name] = lnk     
+    //lnk := new(Link)  
+    //lnk.Src = &model.Links[i]
+    //lnk.fromModel(&model.Links[i])
+    lnk := linkFromModel(&model.Links[i])
+    links[ model.Links[i].Name ] = lnk     
   }
   // joints   
   for i := 0; i < len(model.Joints); i++ {
-    jnt := new(Joint)
-    jnt.Src = &model.Joints[i]
+    //jnt := new(Joint)
+    //jnt.Src = &model.Joints[i]
+    jnt := jointFromModel(&model.Joints[i])
     lnk := links[model.Joints[i].Parent.Name] 
     jnt.Parent = lnk     
     lnk.Joints = append(lnk.Joints, jnt) 
