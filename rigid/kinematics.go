@@ -34,6 +34,37 @@ func (t *Transform) Reset() {
   t.Pos = mat.New(3,1, []float64{0,0,0})
 }
 
+func (t *Transform) Set(src *Transform) {
+  t.Rot = src.Rot.Copy()
+  t.Pos = src.Pos.Copy() 
+}
+
+func (dst *Transform) Apply(t *Transform) {
+  dst.Rot = mat.Prod(dst.Rot,t.Rot)
+  dst.Pos = mat.Sum(mat.Prod(dst.Rot,t.Pos), dst.Pos)
+}
+
+func GetTransform(jt JointType, q float64) *Transform {
+  res := Transform {} 
+  res.Reset() 
+  switch jt {
+  case joint_Tx:
+    res.Pos = Txyz(q,0,0) 
+  case joint_Ty:
+    res.Pos = Txyz(0,q,0)
+  case joint_Tz:
+    res.Pos = Txyz(0,0,q)
+  case joint_Rx:
+    res.Rot = Rx(q)
+  case joint_Ry:
+    res.Rot = Ry(q)
+  case joint_Rz:
+    res.Rot = Rz(q) 
+  //default:
+  }
+  return &res 
+}
+
 /*
 func (t *Transform) ToH() *mat.Dense {
   return mat.NewDense(4,4, []float64{
@@ -94,3 +125,4 @@ func RPY(w,p,r float64) *mat.Matrix {
 func Txyz(x,y,z float64) *mat.Matrix {
   return mat.New(3,1, []float64{x,y,z})
 }
+

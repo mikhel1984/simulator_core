@@ -19,7 +19,25 @@ type Link struct {
 func linkFromModel(m *urdf.Link) *Link {
   lnk := new(Link) 
   lnk.Src = m
+  lnk.State.Reset()
   return lnk
+}
+
+func (v *Link) UpdateState(qs map[string][3]float64) {
+  // current state
+  jnt := v.Parent
+  if jnt != nil {
+    v.State.Set(&jnt.Parent.State) 
+    if jnt.Type != joint_Fixed {
+      q := qs[jnt.Src.Name][0] 
+      v.State.Apply(GetTransform(jnt.Type,q))
+    }
+    v.State.Apply(&jnt.Trans)
+  }
+  // next elements 
+  for _, j := range v.Joints {
+    j.Child.UpdateState(qs)
+  }
 }
 
 type Joint struct {
@@ -58,8 +76,8 @@ func jointFromModel(m *urdf.Joint) *Joint {
   jnt.Trans.Pos = Txyz(v[0],v[1],v[2]) 
   v = m.GetRpy()
   jnt.Trans.Rot = RPY(v[0],v[1],v[2])
-  jnt.Trans.Rot.Print()
-  jnt.Trans.Pos.Print()
+  //jnt.Trans.Rot.Print()
+  //jnt.Trans.Pos.Print()
   return jnt
 }
 
