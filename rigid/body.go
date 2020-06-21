@@ -25,15 +25,46 @@ func (v *Link) UpdateState(qs map[string][3]float64) {
   // update next links
   for _,jnt := range v.Joints {
     lnk := jnt.Child 
-    lnk.State.Set(&v.State)
-    lnk.State.Apply(&jnt.Trans)
-    if jnt.Type != joint_Fixed {
+    lnk.State.Set(&v.State)         // copy previous state
+    lnk.State.Apply(&jnt.Trans)     // displace
+    if jnt.Type != joint_Fixed {    // apply joint transformation
       q := qs[jnt.Src.Name][0]      // [q, dq, ddq]
       lnk.State.ApplyJoint(jnt.Type, q)
     }
     // next elements
     lnk.UpdateState(qs)
   }
+}
+
+// collect movable joints
+func (v *Link) Predecessors() []*Joint {
+  var acc []*Joint 
+  jnt := v.Parent
+  for jnt != nil {
+    if jnt.Type != joint_Fixed {
+      acc = append(acc, jnt)
+    }
+    jnt = jnt.Parent.Parent
+  }
+  // reverse
+  n := len(acc)
+  res := make([]*Joint,n)
+  for i := 0; i < n; i++ {
+    res[i] = acc[n-i-1] 
+  }
+  return res
+}
+
+func (v *Link) Jacobian(mov []*Joint) {
+  if mov == nil {
+    mov = v.Predecessors()
+  }
+  jac := jacEmpty(len(mov)) 
+  for i,jnt := range mov {
+    jnt.Child.State.toColumn(jac, i, jnt.Type, v.State.Pos)
+  }
+  //return jac
+  jac.Print()
 }
 
 func (v *Link) Find(name string) *Link {

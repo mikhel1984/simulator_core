@@ -29,6 +29,10 @@ func main() {
   println(ee)  
   
   base.UpdateState(qs)
-  ee.State.Rot.Print()
-  ee.State.Pos.Print()
+  //ee.State.Rot.Print()
+  //ee.State.Pos.Print()
+  
+  lst := ee.Predecessors() 
+  ee.Jacobian(lst) 
+  
 }

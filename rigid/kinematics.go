@@ -44,6 +44,7 @@ func (dst *Transform) Apply(t *Transform) {
   dst.Rot = mat.Prod(dst.Rot,t.Rot)
 }
 
+
 func GetTransform(jt JointType, q float64) *Transform {
   res := Transform {} 
   res.Reset() 
@@ -79,6 +80,19 @@ func (dst *Transform) ApplyJoint(tp JointType, q float64) {
     dst.Rot = mat.Prod(dst.Rot,Ry(q))
   case joint_Rz:
     dst.Rot = mat.Prod(dst.Rot,Rz(q))
+  }
+}
+
+func (t *Transform) toColumn(m *mat.Matrix, col int, tp JointType, ee *mat.Matrix) {
+  switch tp {
+  case joint_Tx, joint_Ty, joint_Tz:
+    z := t.Rot.Col(int(tp))
+    m.Block(0,col, 3,1).Insert(z) 
+  case joint_Rx, joint_Ry, joint_Rz:
+    z := t.Rot.Col(int(tp)-3).Copy()
+    m.Block(3,col, 3,1).Insert(z)
+    w := z.Cross(mat.Diff(ee, t.Pos))
+    m.Block(0,col, 3,1).Insert(w)
   }
 }
 
@@ -141,5 +155,9 @@ func RPY(w,p,r float64) *mat.Matrix {
   
 func Txyz(x,y,z float64) *mat.Matrix {
   return mat.New(3,1, []float64{x,y,z})
+}
+
+func jacEmpty(cols int) *mat.Matrix {
+  return mat.New(6,cols,nil)
 }
 
