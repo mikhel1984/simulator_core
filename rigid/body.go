@@ -4,8 +4,6 @@ import (
   "../urdf"
 )
 
-
-
 type Link struct {
   // source 
   Src          *urdf.Link 
@@ -24,20 +22,31 @@ func linkFromModel(m *urdf.Link) *Link {
 }
 
 func (v *Link) UpdateState(qs map[string][3]float64) {
-  // current state
-  jnt := v.Parent
-  if jnt != nil {
-    v.State.Set(&jnt.Parent.State) 
+  // update next links
+  for _,jnt := range v.Joints {
+    lnk := jnt.Child 
+    lnk.State.Set(&v.State)
+    lnk.State.Apply(&jnt.Trans)
     if jnt.Type != joint_Fixed {
-      q := qs[jnt.Src.Name][0] 
-      v.State.Apply(GetTransform(jnt.Type,q))
+      q := qs[jnt.Src.Name][0]      // [q, dq, ddq]
+      lnk.State.ApplyJoint(jnt.Type, q)
     }
-    v.State.Apply(&jnt.Trans)
+    // next elements
+    lnk.UpdateState(qs)
   }
-  // next elements 
-  for _, j := range v.Joints {
-    j.Child.UpdateState(qs)
+}
+
+func (v *Link) Find(name string) *Link {
+  if v.Src.Name == name {
+    return v
   }
+  for _,j := range v.Joints {
+    res := j.Child.Find(name) 
+    if res != nil {
+      return res
+    }
+  }
+  return nil
 }
 
 type Joint struct {

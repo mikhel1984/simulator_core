@@ -40,8 +40,8 @@ func (t *Transform) Set(src *Transform) {
 }
 
 func (dst *Transform) Apply(t *Transform) {
-  dst.Rot = mat.Prod(dst.Rot,t.Rot)
   dst.Pos = mat.Sum(mat.Prod(dst.Rot,t.Pos), dst.Pos)
+  dst.Rot = mat.Prod(dst.Rot,t.Rot)
 }
 
 func GetTransform(jt JointType, q float64) *Transform {
@@ -63,6 +63,23 @@ func GetTransform(jt JointType, q float64) *Transform {
   //default:
   }
   return &res 
+}
+
+func (dst *Transform) ApplyJoint(tp JointType, q float64) {
+  switch tp {
+  case joint_Tx:
+    dst.Pos = mat.Sum(mat.Prod(dst.Rot,Txyz(q,0,0)),dst.Pos) 
+  case joint_Ty:
+    dst.Pos = mat.Sum(mat.Prod(dst.Rot,Txyz(0,q,0)),dst.Pos) 
+  case joint_Tz:
+    dst.Pos = mat.Sum(mat.Prod(dst.Rot,Txyz(0,0,q)),dst.Pos) 
+  case joint_Rx:
+    dst.Rot = mat.Prod(dst.Rot,Rx(q)) 
+  case joint_Ry:
+    dst.Rot = mat.Prod(dst.Rot,Ry(q))
+  case joint_Rz:
+    dst.Rot = mat.Prod(dst.Rot,Rz(q))
+  }
 }
 
 /*
