@@ -1,9 +1,9 @@
 package rigid 
 
 import (
-  //"gonum.org/v1/gonum/mat"
-  "../mat"   // temporary
+  "gonum.org/v1/gonum/mat"  
   "math"
+  "fmt"
 )
 
 type JointType int
@@ -18,32 +18,38 @@ const (
 )
 
 type Transform struct {
-  //Rot  *mat.Dense  // rotation
-  //Pos  *mat.Dense  // translation 
-  Rot  *mat.Matrix
-  Pos  *mat.Matrix
+  Rot  *mat.Dense  // rotation
+  Pos  *mat.Dense  // translation   
 }
 
 func (t *Transform) Reset() {
-  //t.Rot = mat.NewDense(3,3, []float64{
-  t.Rot = mat.New(3,3, []float64{
+  t.Rot = mat.NewDense(3,3, []float64{  
     1, 0, 0,
     0, 1, 0,
     0, 0, 1})
-  //t.Pos = mat.NewDense(3,1, []float64{0,0,0})
-  t.Pos = mat.New(3,1, []float64{0,0,0})
+  t.Pos = mat.NewDense(3,1, []float64{0,0,0})  
+}
+
+func clone(src, dst *mat.Dense) {
+  r, c := src.Dims()
+  for i := 0; i < r; i++ {
+    for j := 0; j < c; j++ {
+      dst.Set(i,j, src.At(i,j))
+    }
+  }
 }
 
 func (t *Transform) Set(src *Transform) {
-  t.Rot = src.Rot.Copy()
-  t.Pos = src.Pos.Copy() 
+  clone(src.Rot, t.Rot)
+  clone(src.Pos, t.Pos)
 }
 
 func (dst *Transform) Apply(t *Transform) {
-  dst.Pos = mat.Sum(mat.Prod(dst.Rot,t.Pos), dst.Pos)
-  dst.Rot = mat.Prod(dst.Rot,t.Rot)
+  var tmp mat.Dense 
+  tmp.Mul(dst.Rot, t.Pos) 
+  dst.Pos.Add(&tmp, dst.Pos)    // p2 += R2*p1 
+  dst.Rot.Mul(dst.Rot, t.Rot)   // R2 *= R1   
 }
-
 
 func GetTransform(jt JointType, q float64) *Transform {
   res := Transform {} 
@@ -67,32 +73,54 @@ func GetTransform(jt JointType, q float64) *Transform {
 }
 
 func (dst *Transform) ApplyJoint(tp JointType, q float64) {
+  var tmp mat.Dense
   switch tp {
   case joint_Tx:
-    dst.Pos = mat.Sum(mat.Prod(dst.Rot,Txyz(q,0,0)),dst.Pos) 
+    tmp.Mul(dst.Rot, Txyz(q,0,0))
+    dst.Pos.Add(&tmp,dst.Pos)    
   case joint_Ty:
-    dst.Pos = mat.Sum(mat.Prod(dst.Rot,Txyz(0,q,0)),dst.Pos) 
+    tmp.Mul(dst.Rot,Txyz(0,q,0))
+    dst.Pos.Add(&tmp,dst.Pos)    
   case joint_Tz:
-    dst.Pos = mat.Sum(mat.Prod(dst.Rot,Txyz(0,0,q)),dst.Pos) 
+    tmp.Mul(dst.Rot, Txyz(0,0,q))
+    dst.Pos.Add(&tmp,dst.Pos)    
   case joint_Rx:
-    dst.Rot = mat.Prod(dst.Rot,Rx(q)) 
-  case joint_Ry:
-    dst.Rot = mat.Prod(dst.Rot,Ry(q))
-  case joint_Rz:
-    dst.Rot = mat.Prod(dst.Rot,Rz(q))
+    dst.Rot.Mul(dst.Rot, Rx(q))    
+  case joint_Ry:    
+    dst.Rot.Mul(dst.Rot, Ry(q))
+  case joint_Rz:    
+    dst.Rot.Mul(dst.Rot, Rz(q))
   }
 }
 
-func (t *Transform) toColumn(m *mat.Matrix, col int, tp JointType, ee *mat.Matrix) {
+func MatInsert(r,c int, dst *mat.Dense, src mat.Matrix) {
+  nr, nc := src.Dims()
+  for i := 0; i < nr; i++ {
+    for j := 0; j < nc; j++ {
+      dst.Set(r+i,c+j,src.At(i,j))
+    }
+  }
+}
+
+func Cross(a,b mat.Matrix) *mat.Dense {
+  return mat.NewDense(3,1, []float64 {
+    a.At(1,0)*b.At(2,0) - a.At(2,0)*b.At(1,0),
+  -(a.At(0,0)*b.At(2,0) - a.At(2,0)*b.At(0,0)),
+    a.At(0,0)*b.At(1,0) - a.At(1,0)*b.At(0,0)})
+}
+
+func (t *Transform) toColumn(m *mat.Dense, col int, tp JointType, ee *mat.Dense) {  
   switch tp {
-  case joint_Tx, joint_Ty, joint_Tz:
-    z := t.Rot.Col(int(tp))
-    m.Block(0,col, 3,1).Insert(z) 
+  case joint_Tx, joint_Ty, joint_Tz:    
+    z := t.Rot.Slice(0,3, int(tp), int(tp)+1)
+    MatInsert(0,col, m, z)
   case joint_Rx, joint_Ry, joint_Rz:
-    z := t.Rot.Col(int(tp)-3).Copy()
-    m.Block(3,col, 3,1).Insert(z)
-    w := z.Cross(mat.Diff(ee, t.Pos))
-    m.Block(0,col, 3,1).Insert(w)
+    z := t.Rot.Slice(0,3, int(tp)-3, int(tp)-2)
+    MatInsert(3,col, m, z)
+    var tmp mat.Dense 
+    tmp.Sub(ee, t.Pos)
+    w := Cross(z, &tmp)
+    MatInsert(0,col, m, w)
   }
 }
 
@@ -105,59 +133,55 @@ func (t *Transform) ToH() *mat.Dense {
                 0,             0,             0,            1})
 }*/
 
-//func Rx(q float64) *mat.Dense {
-func Rx(q float64) *mat.Matrix {
+func Rx(q float64) *mat.Dense {
   s,c := math.Sin(q), math.Cos(q)
-  //return mat.NewDense(3,3, []float64{
-  return mat.New(3,3, []float64{
+  return mat.NewDense(3,3, []float64{
      1, 0, 0,
      0, c,-s,
      0, s, c})
 }
 
-//func Ry(q float64) *mat.Dense {
-func Ry(q float64) *mat.Matrix {
+func Ry(q float64) *mat.Dense {
   s,c := math.Sin(q), math.Cos(q)
-  //return mat.NewDense(3,3, []float64{
-  return mat.New(3,3, []float64{
+  return mat.NewDense(3,3, []float64{
      c, 0, s,
      0, 1, 0,
     -s, 0, c})
 }
 
-//func Rz(q float64) *mat.Dense {
-func Rz(q float64) *mat.Matrix {
+func Rz(q float64) *mat.Dense {
   s,c := math.Sin(q), math.Cos(q)
-  //return mat.NewDense(3,3, []float64{
-  return mat.New(3,3, []float64{
+  return mat.NewDense(3,3, []float64{
      c,-s, 0,
      s, c, 0,
      0, 0, 1})
 }
 
-//func RPY(w,p,r float64) *mat.Dense {
-func RPY(w,p,r float64) *mat.Matrix {
+func RPY(w,p,r float64) *mat.Dense {
   // yaw - X, pitch - Y, roll - Z
   sw, cw := math.Sin(w), math.Cos(w)
   sp, cp := math.Sin(p), math.Cos(p)
   sr, cr := math.Sin(r), math.Cos(r)
   ssw, scw := sp*sw, sp*cw
-  //return mat.NewDense(3,3, []float64{
-  return mat.New(3,3, []float64{
+  return mat.NewDense(3,3, []float64{
     cr*cp,-sr*cw+cr*ssw, sr*sw+cr*scw, 
     sr*cp, cr*cw+sr*ssw,-cr*sw+sr*scw,
       -sp, cp*sw,        cp*cw })
 }
 
-//func Txyz(x,y,z float64) *mat.Dense {
-//  return mat.NewDense(3,1, []float64{x,y,z})
-//}
+func Txyz(x,y,z float64) *mat.Dense {
+  return mat.NewDense(3,1, []float64{x,y,z})
+}
   
-func Txyz(x,y,z float64) *mat.Matrix {
-  return mat.New(3,1, []float64{x,y,z})
+//func Txyz(x,y,z float64) *mat.Matrix {
+//  return mat.New(3,1, []float64{x,y,z})
+//}
+
+func jacEmpty(cols int) *mat.Dense {
+  return mat.NewDense(6,cols,nil)
 }
 
-func jacEmpty(cols int) *mat.Matrix {
-  return mat.New(6,cols,nil)
+func MatPrint(m *mat.Dense) {
+  f := mat.Formatted(m, mat.Prefix(" "), mat.Squeeze())
+  fmt.Printf("%v", f) 
 }
-

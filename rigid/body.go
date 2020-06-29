@@ -1,7 +1,7 @@
 package rigid 
 
 import (
-  "../urdf"
+  "../urdf"  
 )
 
 type Link struct {
@@ -64,7 +64,8 @@ func (v *Link) Jacobian(mov []*Joint) {
     jnt.Child.State.toColumn(jac, i, jnt.Type, v.State.Pos)
   }
   //return jac
-  jac.Print()
+  //jac.Print()
+  MatPrint(jac) 
 }
 
 func (v *Link) Find(name string) *Link {
