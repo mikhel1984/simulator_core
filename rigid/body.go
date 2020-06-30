@@ -52,6 +52,7 @@ func (v *Link) UpdateState(qs map[string][3]float64) {
     if jnt.Type != joint_Fixed {    // apply joint transformation
       q := qs[jnt.Src.Name][0]      // [q, dq, ddq]
       lnk.State.ApplyJoint(jnt.Type, q)
+      jnt.UpdateR(q) 
     }
     // next elements
     lnk.UpdateState(qs)
@@ -105,6 +106,14 @@ func (v *Link) Find(name string) *Link {
   return nil
 }
 
+/*
+func (v *Link) rnea(w, al, ac, ae *mat.Dense, g float64) (f, tau *mat.Dense) {
+  // current velocities 
+  
+  
+  // current torques/forces  
+}*/ 
+
 type Joint struct {
   // source 
   Src          *urdf.Joint 
@@ -116,7 +125,7 @@ type Joint struct {
   // Transformations 
   Trans         Transform     // constant transformation
   Limit         [2]float64
-  Rij           *mat.Dense    // current joint rotation 
+  Rij           *mat.Dense    // from current to next joint 
   // dynamics 
   Tau           float64 
 }
@@ -124,8 +133,7 @@ type Joint struct {
 // Joint constructor from URDF 
 func jointFromModel(m *urdf.Joint) *Joint {
   jnt := new(Joint) 
-  jnt.Src = m 
-  jnt.Rij = eye3() 
+  jnt.Src = m    
   if m.Type == "revolute" {
     a := m.GetAxis() 
     jnt.Type = JointType(3+a) 
@@ -142,21 +150,24 @@ func jointFromModel(m *urdf.Joint) *Joint {
   jnt.Trans.Pos = Txyz(v[0],v[1],v[2]) 
   v = m.GetRpy()
   jnt.Trans.Rot = RPY(v[0],v[1],v[2])
-  
+  // local transformation 
+  jnt.Rij = eye3()
+  jnt.Rij.Copy(jnt.Trans.Rot) 
   return jnt
 }
 
+// Update current rotation transform 
+func (jnt *Joint) UpdateR(q float64) {
+  switch jnt.Type {
+  case joint_Rx:
+    jnt.Rij.Mul(jnt.Trans.Rot, Rx(q))
+  case joint_Ry:
+    jnt.Rij.Mul(jnt.Trans.Rot, Ry(q))
+  case joint_Rz:
+    jnt.Rij.Mul(jnt.Trans.Rot, Rz(q))
+  }
+}
 
-
-/*
-func (v *Inertial) Set(ii, rc []float64, m float64) {
-  v.M = m 
-  v.Rc = mat.NewDense(3,1, rc) 
-  v.I = mat.NewDense(3,3, []float64 {
-    ii[0],ii[1],ii[2],
-    ii[1],ii[3],ii[4],
-    ii[2],ii[4],ii[5]})  
-}*/
 
 // Make tree of rigid body elements 
 func BodyTree(model *urdf.Model) *Link {
