@@ -50,9 +50,10 @@ func (v *Link) UpdateState(qs map[string][3]float64) {
     lnk.State.Set(&v.State)         // copy previous state
     lnk.State.Apply(&jnt.Trans)     // displace
     if jnt.Type != joint_Fixed {    // apply joint transformation
-      q := qs[jnt.Src.Name][0]      // [q, dq, ddq]
-      lnk.State.ApplyJoint(jnt.Type, q)
-      jnt.UpdateR(q) 
+      qlst := qs[ jnt.Src.Name ]    // [q, dq, ddq]
+      jnt.Angle, jnt.Vel, jnt.Acc = qlst[0], qlst[1], qlst[2]      
+      lnk.State.ApplyJoint(jnt.Type, qlst[0])  // new joint origin 
+      jnt.UpdateR(qlst[0])                // rotation between current and next links 
     }
     // next elements
     lnk.UpdateState(qs)
@@ -88,8 +89,6 @@ func (v *Link) Jacobian(mov []*Joint) *mat.Dense {
     jnt.Child.State.toColumn(jac, i, jnt.Type, v.State.Pos)
   }
   return jac
-  //jac.Print()
-  //MatPrint(jac) 
 }
 
 // Find link with the given name 
@@ -108,11 +107,24 @@ func (v *Link) Find(name string) *Link {
 
 /*
 func (v *Link) rnea(w, al, ac, ae *mat.Dense, g float64) (f, tau *mat.Dense) {
+  if len(v.Joints) == 0 {
+    // the last link 
+    return zero31(), zero31() 
+  }
   // current velocities 
-  
+  jnt := v.Parent 
+  var Rprev *mat.Dense 
+  var q, qd, q2d float64
+  if jnt != nil {
+    Rprev = jnt.Local.Rot  
+    q, qd, q2d = jnt.Angle, jnt.Vel, jnt.Acc 
+  } else {
+    Rprev = eye33() 
+  } 
   
   // current torques/forces  
-}*/ 
+}
+*/  
 
 type Joint struct {
   // source 
@@ -122,10 +134,16 @@ type Joint struct {
   Child        *Link 
   // type 
   Type          JointType
+  // Parameters 
+  Angle         float64
+  Vel           float64
+  Acc           float64
   // Transformations 
   Trans         Transform     // constant transformation
+  Local         Transform     // rotation from current to next and joint axis 
   Limit         [2]float64
-  Rij           *mat.Dense    // from current to next joint 
+  //Rij           *mat.Dense    // from current to next joint 
+  //Axis          *mat.Dense    // joint axis 
   // dynamics 
   Tau           float64 
 }
@@ -136,7 +154,7 @@ func jointFromModel(m *urdf.Joint) *Joint {
   jnt.Src = m    
   if m.Type == "revolute" {
     a := m.GetAxis() 
-    jnt.Type = JointType(3+a) 
+    jnt.Type = JointType(3+a)     
     jnt.Limit[0], jnt.Limit[1] = m.GetLimits()
   } else if m.Type == "prismatic" {
     a := m.GetAxis()
@@ -144,15 +162,16 @@ func jointFromModel(m *urdf.Joint) *Joint {
     jnt.Limit[0], jnt.Limit[1] = m.GetLimits()
   } else {
     jnt.Type = joint_Fixed;
-  }
+  } 
   // transformation to next joint
   v := m.GetXyz() 
   jnt.Trans.Pos = Txyz(v[0],v[1],v[2]) 
   v = m.GetRpy()
   jnt.Trans.Rot = RPY(v[0],v[1],v[2])
   // local transformation 
-  jnt.Rij = eye3()
-  jnt.Rij.Copy(jnt.Trans.Rot) 
+  jnt.Local.Rot = eye33()
+  jnt.Local.Rot.Copy(jnt.Trans.Rot)   
+  jnt.Local.Pos = getJointAxis(jnt.Type)
   return jnt
 }
 
@@ -160,14 +179,25 @@ func jointFromModel(m *urdf.Joint) *Joint {
 func (jnt *Joint) UpdateR(q float64) {
   switch jnt.Type {
   case joint_Rx:
-    jnt.Rij.Mul(jnt.Trans.Rot, Rx(q))
+    jnt.Local.Rot.Mul(jnt.Trans.Rot, Rx(q))
   case joint_Ry:
-    jnt.Rij.Mul(jnt.Trans.Rot, Ry(q))
+    jnt.Local.Rot.Mul(jnt.Trans.Rot, Ry(q))
   case joint_Rz:
-    jnt.Rij.Mul(jnt.Trans.Rot, Rz(q))
+    jnt.Local.Rot.Mul(jnt.Trans.Rot, Rz(q))
   }
 }
 
+func getJointAxis(tp JointType) *mat.Dense {
+  switch tp {
+  case joint_Tx, joint_Rx:
+    return mat.NewDense(3,1, []float64{1,0,0})
+  case joint_Ty, joint_Ry:
+    return mat.NewDense(3,1, []float64{0,1,0})
+  case joint_Tz, joint_Rz:
+    return mat.NewDense(3,1, []float64{0,0,1})  
+  }
+  return mat.NewDense(3,1, []float64{0,0,0}) 
+}
 
 // Make tree of rigid body elements 
 func BodyTree(model *urdf.Model) *Link {

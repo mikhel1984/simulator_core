@@ -25,17 +25,21 @@ type Transform struct {
 }
 
 // Get identity matrix 3x3 
-func eye3() *mat.Dense {
+func eye33() *mat.Dense {
   return mat.NewDense(3,3, []float64{
     1, 0, 0,
     0, 1, 0,
     0, 0, 1})
 }
 
+func zero31() *mat.Dense {
+  return mat.NewDense(3,1, []float64{0,0,0}) 
+}
+
 // Set R = I and p = 0
 func (t *Transform) Reset() {
-  t.Rot = eye3() 
-  t.Pos = mat.NewDense(3,1, []float64{0,0,0})  
+  t.Rot = eye33() 
+  t.Pos = zero31()  
 }
 
 
