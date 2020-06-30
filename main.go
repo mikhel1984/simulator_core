@@ -14,7 +14,7 @@ func main() {
     return 
   }
   
-  base:= rigid.MakeTree(model)
+  base:= rigid.BodyTree(model)
   println(base.Src.Name)
   
   qs := make(map[string][3]float64) 
@@ -36,6 +36,7 @@ func main() {
   //rigid.MatPrint(ee.State.Pos) 
   
   lst := ee.Predecessors() 
-  ee.Jacobian(lst) 
+  jac := ee.Jacobian(lst) 
+  rigid.MatPrint(jac) 
   
 }

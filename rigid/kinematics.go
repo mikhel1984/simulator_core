@@ -6,6 +6,7 @@ import (
   "fmt"
 )
 
+// Joint classification 
 type JointType int
 const (
   joint_Tx JointType = iota 
@@ -17,33 +18,33 @@ const (
   joint_Fixed
 )
 
+// Replace homogenous matrix with pair (R,p) 
 type Transform struct {
   Rot  *mat.Dense  // rotation
   Pos  *mat.Dense  // translation   
 }
 
-func (t *Transform) Reset() {
-  t.Rot = mat.NewDense(3,3, []float64{  
+func eye3() *mat.Dense {
+  return mat.NewDense(3,3, []float64{
     1, 0, 0,
     0, 1, 0,
     0, 0, 1})
+}
+
+// Set R = I and p = 0
+func (t *Transform) Reset() {
+  t.Rot = eye3() 
   t.Pos = mat.NewDense(3,1, []float64{0,0,0})  
 }
 
-func clone(src, dst *mat.Dense) {
-  r, c := src.Dims()
-  for i := 0; i < r; i++ {
-    for j := 0; j < c; j++ {
-      dst.Set(i,j, src.At(i,j))
-    }
-  }
-}
 
+// Copy Transform object 
 func (t *Transform) Set(src *Transform) {
-  clone(src.Rot, t.Rot)
-  clone(src.Pos, t.Pos)
+  matInsert(0,0, t.Rot, src.Rot)
+  matInsert(0,0, t.Pos, src.Pos)
 }
 
+// Update state using the given transformation 
 func (dst *Transform) Apply(t *Transform) {
   var tmp mat.Dense 
   tmp.Mul(dst.Rot, t.Pos) 
@@ -51,6 +52,7 @@ func (dst *Transform) Apply(t *Transform) {
   dst.Rot.Mul(dst.Rot, t.Rot)   // R2 *= R1   
 }
 
+/*
 func GetTransform(jt JointType, q float64) *Transform {
   res := Transform {} 
   res.Reset() 
@@ -71,7 +73,9 @@ func GetTransform(jt JointType, q float64) *Transform {
   }
   return &res 
 }
+*/
 
+// Apply joint transformation 
 func (dst *Transform) ApplyJoint(tp JointType, q float64) {
   var tmp mat.Dense
   switch tp {
@@ -93,7 +97,8 @@ func (dst *Transform) ApplyJoint(tp JointType, q float64) {
   }
 }
 
-func MatInsert(r,c int, dst *mat.Dense, src mat.Matrix) {
+// Place one matrix into another 
+func matInsert(r,c int, dst *mat.Dense, src mat.Matrix) {
   nr, nc := src.Dims()
   for i := 0; i < nr; i++ {
     for j := 0; j < nc; j++ {
@@ -113,14 +118,14 @@ func (t *Transform) toColumn(m *mat.Dense, col int, tp JointType, ee *mat.Dense)
   switch tp {
   case joint_Tx, joint_Ty, joint_Tz:    
     z := t.Rot.Slice(0,3, int(tp), int(tp)+1)
-    MatInsert(0,col, m, z)
+    matInsert(0,col, m, z)
   case joint_Rx, joint_Ry, joint_Rz:
     z := t.Rot.Slice(0,3, int(tp)-3, int(tp)-2)
-    MatInsert(3,col, m, z)
+    matInsert(3,col, m, z)
     var tmp mat.Dense 
     tmp.Sub(ee, t.Pos)
     w := Cross(z, &tmp)
-    MatInsert(0,col, m, w)
+    matInsert(0,col, m, w)
   }
 }
 

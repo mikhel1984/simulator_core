@@ -1,7 +1,8 @@
 package rigid 
 
 import (
-  "../urdf"  
+  "../urdf" 
+  "gonum.org/v1/gonum/mat"  
 )
 
 type Link struct {
@@ -14,6 +15,7 @@ type Link struct {
   State         Transform
 } 
 
+// Link constructor based on URDF
 func linkFromModel(m *urdf.Link) *Link {
   lnk := new(Link) 
   lnk.Src = m
@@ -21,6 +23,7 @@ func linkFromModel(m *urdf.Link) *Link {
   return lnk
 }
 
+// Update chain parameters for the given joint states 
 func (v *Link) UpdateState(qs map[string][3]float64) {
   // update next links
   for _,jnt := range v.Joints {
@@ -55,7 +58,8 @@ func (v *Link) Predecessors() []*Joint {
   return res
 }
 
-func (v *Link) Jacobian(mov []*Joint) {
+// Calculate Jacobian matrix 
+func (v *Link) Jacobian(mov []*Joint) *mat.Dense {
   if mov == nil {
     mov = v.Predecessors()
   }
@@ -63,11 +67,12 @@ func (v *Link) Jacobian(mov []*Joint) {
   for i,jnt := range mov {
     jnt.Child.State.toColumn(jac, i, jnt.Type, v.State.Pos)
   }
-  //return jac
+  return jac
   //jac.Print()
-  MatPrint(jac) 
+  //MatPrint(jac) 
 }
 
+// Find link with the given name 
 func (v *Link) Find(name string) *Link {
   if v.Src.Name == name {
     return v
@@ -89,18 +94,19 @@ type Joint struct {
   Child        *Link 
   // type 
   Type          JointType
-  // current state
-  Angle         float64 
-  Velocity      float64
-  Acceleration  float64 
-  // constant transformation 
-  Trans         Transform 
+  // Transformations 
+  Trans         Transform     // constant transformation
   Limit         [2]float64
+  Rij           *mat.Dense    // current joint rotation 
+  // dynamics 
+  Tau           float64 
 }
 
+// Joint constructor from URDF 
 func jointFromModel(m *urdf.Joint) *Joint {
   jnt := new(Joint) 
   jnt.Src = m 
+  jnt.Rij = eye3() 
   if m.Type == "revolute" {
     a := m.GetAxis() 
     jnt.Type = JointType(3+a) 
@@ -117,31 +123,26 @@ func jointFromModel(m *urdf.Joint) *Joint {
   jnt.Trans.Pos = Txyz(v[0],v[1],v[2]) 
   v = m.GetRpy()
   jnt.Trans.Rot = RPY(v[0],v[1],v[2])
-  //jnt.Trans.Rot.Print()
-  //jnt.Trans.Pos.Print()
+  
   return jnt
 }
 
-func MakeTree(model *urdf.Model) *Link {
+// Make tree of rigid body elements 
+func BodyTree(model *urdf.Model) *Link {
   // read links 
   links := make(map[string]*Link)   
   for i := 0; i < len(model.Links); i++ {
-    //lnk := new(Link)  
-    //lnk.Src = &model.Links[i]
-    //lnk.fromModel(&model.Links[i])
     lnk := linkFromModel(&model.Links[i])
     links[ model.Links[i].Name ] = lnk     
   }
   // joints   
   for i := 0; i < len(model.Joints); i++ {
-    //jnt := new(Joint)
-    //jnt.Src = &model.Joints[i]
     jnt := jointFromModel(&model.Joints[i])
-    lnk := links[model.Joints[i].Parent.Name] 
+    lnk := links[ model.Joints[i].Parent.Name ] 
     jnt.Parent = lnk     
     lnk.Joints = append(lnk.Joints, jnt) 
     
-    lnk = links[model.Joints[i].Child.Name]
+    lnk = links[ model.Joints[i].Child.Name ]
     lnk.Parent = jnt
     jnt.Child = lnk     
   }
