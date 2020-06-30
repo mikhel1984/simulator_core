@@ -13,13 +13,32 @@ type Link struct {
   Parent       *Joint 
   // current state
   State         Transform
+  // inertial parameters 
+  Dyn           Inertial 
 } 
+
+// Inertial parameters of link 
+type Inertial struct {
+  I     *mat.Dense   // inertia matrix 
+  Rc    *mat.Dense   // mass center 
+  M     float64   // link mass 
+}
 
 // Link constructor based on URDF
 func linkFromModel(m *urdf.Link) *Link {
   lnk := new(Link) 
   lnk.Src = m
   lnk.State.Reset()
+  
+  // inertial parameters 
+  lnk.Dyn.M = m.GetMass()
+  lnk.Dyn.Rc = mat.NewDense(3,1, m.GetMassCenter()) 
+  ii := m.GetInertia() 
+  lnk.Dyn.I = mat.NewDense(3,3, []float64 {
+      ii[0],ii[1],ii[2],
+      ii[1],ii[3],ii[4],
+      ii[2],ii[4],ii[5]})
+      
   return lnk
 }
 
@@ -126,6 +145,18 @@ func jointFromModel(m *urdf.Joint) *Joint {
   
   return jnt
 }
+
+
+
+/*
+func (v *Inertial) Set(ii, rc []float64, m float64) {
+  v.M = m 
+  v.Rc = mat.NewDense(3,1, rc) 
+  v.I = mat.NewDense(3,3, []float64 {
+    ii[0],ii[1],ii[2],
+    ii[1],ii[3],ii[4],
+    ii[2],ii[4],ii[5]})  
+}*/
 
 // Make tree of rigid body elements 
 func BodyTree(model *urdf.Model) *Link {

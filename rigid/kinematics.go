@@ -24,6 +24,7 @@ type Transform struct {
   Pos  *mat.Dense  // translation   
 }
 
+// Get identity matrix 3x3 
 func eye3() *mat.Dense {
   return mat.NewDense(3,3, []float64{
     1, 0, 0,
@@ -190,3 +191,5 @@ func MatPrint(m *mat.Dense) {
   f := mat.Formatted(m, mat.Prefix(" "), mat.Squeeze())
   fmt.Printf("%v", f) 
 }
+
+ 

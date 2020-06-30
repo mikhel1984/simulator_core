@@ -132,7 +132,27 @@ type Link struct {
   Name    string   `xml:"name,attr"` 
   Visual  Visual   `xml:"visual"`
   Collision Collision `xml:"collision"` 
-  Inertial Inertial `xml:"inertial"`  
+  Inertial Inertial_ `xml:"inertial"`  
+}
+
+func (l *Link) GetMass() float64 {
+  m,_ := strconv.ParseFloat(l.Inertial.Mass.Value, 64) 
+  return m
+}
+
+func (l *Link) GetMassCenter() []float64 {
+  return stringToList(l.Inertial.Origin.Xyz) 
+}
+
+func (l *Link) GetInertia() []float64 {
+  res := make([]float64,6,6)  
+  res[0],_ = strconv.ParseFloat(l.Inertial.Inertia.Ixx,64)
+  res[1],_ = strconv.ParseFloat(l.Inertial.Inertia.Ixy,64)
+  res[2],_ = strconv.ParseFloat(l.Inertial.Inertia.Ixz,64)
+  res[3],_ = strconv.ParseFloat(l.Inertial.Inertia.Iyy,64)
+  res[4],_ = strconv.ParseFloat(l.Inertial.Inertia.Iyz,64)
+  res[5],_ = strconv.ParseFloat(l.Inertial.Inertia.Izz,64)
+  return res 
 }
 
 /* func (l *Link) parseData() {
@@ -171,9 +191,9 @@ type Mesh struct {
   Name    string   `xml:"filename,attr"` 
 }
 
-type Inertial struct {
+type Inertial_ struct {
   XMLName xml.Name `xml:"inertial"`
-  Mass    Mass     `xml:"mass"`
+  Mass    Mass_     `xml:"mass"`
   Origin  Origin_   `xml:"origin"` 
   Inertia Inertia  `xml:"inertia"` 
 }
@@ -184,7 +204,7 @@ type Inertial struct {
   v.Inertia.parseData() 
 } */
 
-type Mass struct {
+type Mass_ struct {
   XMLName xml.Name `xml:"mass"`
   Value   string   `xml:"value,attr"`
 }
