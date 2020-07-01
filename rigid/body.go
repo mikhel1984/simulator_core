@@ -108,8 +108,7 @@ func (v *Link) Find(name string) *Link {
 /*
 func (v *Link) rnea(w, al, ac, ae *mat.Dense, g float64) (f, tau *mat.Dense) {
   if len(v.Joints) == 0 {
-    // the last link 
-    return zero31(), zero31() 
+    return zero31(), zero31()  // last link
   }
   // current velocities 
   jnt := v.Parent 
@@ -121,10 +120,23 @@ func (v *Link) rnea(w, al, ac, ae *mat.Dense, g float64) (f, tau *mat.Dense) {
   } else {
     Rprev = eye33() 
   } 
+  var wi, ali, aci, aei, b mat.Dense 
+  // w and al
+  b.Scale(q2d,jnt.Local.Pos)  // qdd * Z
+  ali.Mul(Rprev,al)           // R * al(-1) 
+  ali.Add(ali, b)             // al += b
+  wi.Mul(Rprev,w)             // R * w(-1)
+  b.Scale(qd, jnt.Local.Pos)  // qd * Z
+  wi.Add(wi, b)               // w += b
+  ali.Add(ali, Cross(wi,b))   // al += w x b
+  // ac
+  aci.Mul(R,ac)
+  aci.Add(aci, Cross(
   
   // current torques/forces  
 }
-*/  
+*/
+  
 
 type Joint struct {
   // source 
@@ -186,6 +198,19 @@ func (jnt *Joint) UpdateR(q float64) {
     jnt.Local.Rot.Mul(jnt.Trans.Rot, Rz(q))
   }
 }
+
+func (jnt *Joint) wFrom(R, wPrev *mat.Dense, qd float64) *mat.Dense {
+  var res mat.Dense 
+  res.Mul(R, wPrev) 
+  switch jnt.Type {
+  case joint_Rx, joint_Ry, joint_Rz:
+    var b mat.Dense
+    b.Scale(qd, jnt.Local.Pos)
+    res.Add(&res, &b)
+  }
+  return &res
+}
+
 
 func getJointAxis(tp JointType) *mat.Dense {
   switch tp {
