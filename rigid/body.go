@@ -105,38 +105,46 @@ func (v *Link) Find(name string) *Link {
   return nil
 }
 
-/*
-func (v *Link) rnea(w, al, ac, ae *mat.Dense, g float64) (f, tau *mat.Dense) {
-  if len(v.Joints) == 0 {
-    return zero31(), zero31()  // last link
-  }
-  // current velocities 
-  jnt := v.Parent 
-  var Rprev *mat.Dense 
-  var q, qd, q2d float64
+func (v *Link) rnea(w, dw, ae *mat.Dense, g float64) (*mat.Dense,*mat.Dense) {
+  //if len(v.Joints) == 0 {
+  //  return zero31(), zero31()  // last link
+  //}
+  var wi, dwi, aci, aei *mat.Dense
+  // parent
+  jnt := v.Parent   
   if jnt != nil {
-    Rprev = jnt.Local.Rot  
-    q, qd, q2d = jnt.Angle, jnt.Vel, jnt.Acc 
+    wi, dwi = jnt.getAngularAcc(w,dw)
+    aci = jnt.getCenterAcc(ae, w, dw, v.Dyn.Rc) 
+
   } else {
-    Rprev = eye33() 
+    wi, dwi, aci = zero31(), zero31(), zero31()    
   } 
-  var wi, ali, aci, aei, b mat.Dense 
-  // w and al
-  b.Scale(q2d,jnt.Local.Pos)  // qdd * Z
-  ali.Mul(Rprev,al)           // R * al(-1) 
-  ali.Add(ali, b)             // al += b
-  wi.Mul(Rprev,w)             // R * w(-1)
-  b.Scale(qd, jnt.Local.Pos)  // qd * Z
-  wi.Add(wi, b)               // w += b
-  ali.Add(ali, Cross(wi,b))   // al += w x b
-  // ac
-  aci.Mul(R,ac)
-  aci.Add(aci, Cross(
+  // force / torque
+  var fi, taui, tmp mat.Dense
+  fi.Add(wi,Cross(aci,v.Dyn.Rc))
+  fi.Add(&fi,Cross(wi,Cross(wi,v.Dyn.Rc)))
+  taui.Mul(v.Dyn.I,dwi)
+  tmp.Mul(v.Dyn.I,wi)
+  taui.Add(&taui,Cross(wi,&tmp))
+  taui.Add(&taui,Cross(v.Dyn.Rc,&fi))
+  // children 
+  for _,jc := range v.Joints {
+    re := jc.Trans.Pos
+    aei = jnt.getEndAcc(ae,w,dw, re)
+    f, tau := jc.Child.rnea(wi,dwi,aei,g)
+    // force
+    var fc mat.Dense
+    fc.Mul(jc.Local.Rot, f) 
+    fi.Add(&fi,&fc)
+    // torque
+    tmp.Mul(jc.Local.Rot, tau)
+    taui.Add(&taui,&tmp) 
+    tmp.Sub(jnt.Trans.Pos,v.Dyn.Rc)
+    taui.Add(&taui,Cross(&tmp,&fc))    
+  }
   
-  // current torques/forces  
+  return &fi, &taui  
 }
-*/
-  
 
 type Joint struct {
   // source 
@@ -199,16 +207,39 @@ func (jnt *Joint) UpdateR(q float64) {
   }
 }
 
-func (jnt *Joint) wFrom(R, wPrev *mat.Dense, qd float64) *mat.Dense {
-  var res mat.Dense 
-  res.Mul(R, wPrev) 
+func (jnt *Joint) getAngularAcc(wp, dwp *mat.Dense) (*mat.Dense,*mat.Dense) {
+  var wi, dwi, zqd, zq2d mat.Dense 
+  zqd.Scale(jnt.Vel, jnt.Local.Pos)
+  zq2d.Scale(jnt.Acc, jnt.Local.Pos) 
+  Rt := jnt.Local.Rot.T()
+  wi.Mul(Rt, wp)
+  dwi.Mul(Rt, dwp) 
   switch jnt.Type {
-  case joint_Rx, joint_Ry, joint_Rz:
-    var b mat.Dense
-    b.Scale(qd, jnt.Local.Pos)
-    res.Add(&res, &b)
+  case joint_Rx, joint_Ry, joint_Rz:          
+    dwi.Add(&dwi, &zq2d)
+    dwi.Add(&dwi, Cross(&wi, &zqd))  
+    wi.Add(&wi, &zqd)     
   }
-  return &res
+  return &wi, &dwi 
+}
+
+func (jnt *Joint) getCenterAcc(ap, wi, dwi, rc *mat.Dense) *mat.Dense {
+  var ai mat.Dense 
+  //Rt := jnt.Local.Rot.T()
+  ai.Mul(jnt.Local.Rot.T(), ap)       
+  ai.Add(&ai, Cross(dwi,rc))
+  ai.Add(&ai, Cross(wi,Cross(wi,rc)))
+  return &ai  
+}
+
+func (jnt *Joint) getEndAcc(ap, wi, dwi, r *mat.Dense) *mat.Dense {
+  var ai mat.Dense 
+  //Rt := jnt.Local.Rot.T()
+  // TODO: write for prismatic joint
+  ai.Mul(jnt.Local.Rot.T(), ap)  
+  ai.Add(&ai, Cross(dwi,r))
+  ai.Add(&ai, Cross(wi,Cross(wi,r)))
+  return &ai 
 }
 
 
