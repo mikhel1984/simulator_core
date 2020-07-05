@@ -142,8 +142,29 @@ func (v *Link) rnea(w, dw, ae *mat.Dense, g float64) (*mat.Dense,*mat.Dense) {
     tmp.Sub(jnt.Trans.Pos,v.Dyn.Rc)
     taui.Add(&taui,Cross(&tmp,&fc))    
   }
+
+  if jnt.Type != joint_Fixed {
+    jnt.Tau = 0
+    for i := 0; i < 3; i++ {
+      jnt.Tau += taui.At(i,0) * jnt.Local.Pos.At(i,0)
+    }
+  // add friction
+  }
   
   return &fi, &taui  
+}
+
+func (v *Link) DynUpdate(g float64) {
+  zer := zero31()
+  v.rnea(zer, zer, zer, g)
+}
+
+func ReadTorquesFor(mov []*Joint) *mat.Dense {
+  res := mat.NewDense(len(mov),1,nil)
+  for i,v := range mov {
+    res.Set(i,0, v.Tau)
+  }
+  return res
 }
 
 type Joint struct {
