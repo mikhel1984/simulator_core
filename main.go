@@ -36,7 +36,10 @@ func main() {
   //rigid.MatPrint(ee.State.Pos) 
   
   lst := ee.Predecessors() 
-  jac := ee.Jacobian(lst) 
-  rigid.MatPrint(jac) 
+  //jac := ee.Jacobian(lst) 
+  //rigid.MatPrint(jac) 
+  base.UpdateDyn(9.81) 
+  tau := rigid.ReadTorques(lst) 
+  rigid.MatPrint(tau)
   
 }
