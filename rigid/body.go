@@ -53,7 +53,7 @@ func (v *Link) UpdateState(qs map[string][3]float64) {
       qlst := qs[ jnt.Src.Name ]    // [q, dq, ddq]
       jnt.Angle, jnt.Vel, jnt.Acc = qlst[0], qlst[1], qlst[2]      
       lnk.State.ApplyJoint(jnt.Type, qlst[0])  // new joint origin 
-      jnt.UpdateR(qlst[0])                // rotation between current and next links 
+      jnt.UpdateLocal(qlst[0])                // rotation between current and next links 
     }
     // next elements
     lnk.UpdateState(qs)
@@ -106,29 +106,19 @@ func (v *Link) Find(name string) *Link {
 }
 
 func (v *Link) rnea(w, dw, ae *mat.Dense) (*mat.Dense,*mat.Dense) {  
-  //println(v.Src.Name)
-  //println(ae.At(0,0),ae.At(1,0),ae.At(2,0))
-  wi, dwi, aci, aei := w, dw, ae, ae
   jnt := v.Parent 
-  if jnt != nil {
-    //println(jnt.Src.Name)
-    wi, dwi = jnt.getAngularAcc(w,dw)    
-    aci = jnt.getLinearAcc(ae, w, dw, v.Dyn.Rc) 
-    //println(aci.At(0,0),aci.At(1,0),aci.At(2,0)) 
-    //MatPrint(jnt.Local.Rot)
-  }   
+  wi, dwi := jnt.getAngularAcc(w,dw) 
+  aci := jnt.getLinearAcc(ae, w, dw, v.Dyn.Rc) 
   // force / torque
-  var fi, taui, tmp mat.Dense
+  var fi, taui, tmp, fc mat.Dense
   fi.Scale(v.Dyn.M, aci)
   taui.Mul(v.Dyn.I,dwi)
   tmp.Mul(v.Dyn.I,wi)
   taui.Add(&taui,Cross(wi,&tmp))
   // children 
   for _,jc := range v.Joints {
-    var fc, re mat.Dense    
     vnext := jc.Child 
-    re.Sub(vnext.State.Pos,v.State.Pos)
-    aei = jnt.getLinearAcc(ae,w,dw, &re) 
+    aei := jnt.getLinearAcc(ae,w,dw, jc.Local.Pos) 
     f, tau := vnext.rnea(wi,dwi,aei)
     // force    
     fc.Mul(jc.Local.Rot,f) 
@@ -136,7 +126,7 @@ func (v *Link) rnea(w, dw, ae *mat.Dense) (*mat.Dense,*mat.Dense) {
     // torque
     tmp.Mul(jc.Local.Rot, tau)
     taui.Add(&taui,&tmp)
-    tmp.Sub(v.Dyn.Rc,&re)    
+    tmp.Sub(v.Dyn.Rc,jc.Local.Pos)    
     taui.Add(&taui,Cross(&fc,&tmp))    
   }
   taui.Add(&taui,Cross(v.Dyn.Rc,&fi))
@@ -152,7 +142,6 @@ func (v *Link) rnea(w, dw, ae *mat.Dense) (*mat.Dense,*mat.Dense) {
     }
     // add friction
   }  
-  //println(taui.At(0,0),taui.At(1,0),taui.At(2,0))
     
   return &fi, &taui  
 }
@@ -160,7 +149,7 @@ func (v *Link) rnea(w, dw, ae *mat.Dense) (*mat.Dense,*mat.Dense) {
 func (v *Link) UpdateDyn(g float64) {
   zer := zero31()
   acc := zero31()
-  acc.Set(2,0,-g)  
+  acc.Set(2,0,g)  
   v.rnea(zer, zer, acc)
 }
 
@@ -186,10 +175,10 @@ type Joint struct {
   Acc           float64
   // Transformations 
   Trans         Transform     // constant transformation
-  Local         Transform     // rotation from current to next and joint axis 
+  Local         Transform     // rotation from current to next 
   Limit         [2]float64
   //Rij           *mat.Dense    // from current to next joint 
-  //Axis          *mat.Dense    // joint axis 
+  Axis          *mat.Dense    // joint axis 
   // dynamics 
   Tau           float64 
 }
@@ -216,13 +205,15 @@ func jointFromModel(m *urdf.Joint) *Joint {
   jnt.Trans.Rot = RPY(v[0],v[1],v[2])
   // local transformation 
   jnt.Local.Rot = eye33()
-  jnt.Local.Rot.Copy(jnt.Trans.Rot)   
-  jnt.Local.Pos = getJointAxis(jnt.Type)
+  jnt.Local.Pos = zero31()
+  jnt.Local.Rot.Copy(jnt.Trans.Rot) 
+  jnt.Local.Pos.Copy(jnt.Trans.Pos)
+  jnt.Axis = getJointAxis(jnt.Type)
   return jnt
 }
 
 // Update current rotation transform 
-func (jnt *Joint) UpdateR(q float64) {
+func (jnt *Joint) UpdateLocal(q float64) {
   switch jnt.Type {
   case joint_Rx:
     jnt.Local.Rot.Mul(jnt.Trans.Rot, Rx(q))
@@ -230,13 +221,22 @@ func (jnt *Joint) UpdateR(q float64) {
     jnt.Local.Rot.Mul(jnt.Trans.Rot, Ry(q))
   case joint_Rz:
     jnt.Local.Rot.Mul(jnt.Trans.Rot, Rz(q))
+  case joint_Tx:
+    jnt.Local.Pos.Add(jnt.Trans.Pos, Txyz(q,0,0))
+  case joint_Ty:
+    jnt.Local.Pos.Add(jnt.Trans.Pos, Txyz(0,q,0))
+  case joint_Tz:
+    jnt.Local.Pos.Add(jnt.Trans.Pos, Txyz(0,0,q))
   }
 }
 
 func (jnt *Joint) getAngularAcc(wp, dwp *mat.Dense) (*mat.Dense,*mat.Dense) {
+  if jnt == nil {
+    return wp, dwp 
+  }
   var wi, dwi, zqd, zq2d mat.Dense 
-  zqd.Scale(jnt.Vel, jnt.Local.Pos)
-  zq2d.Scale(jnt.Acc, jnt.Local.Pos) 
+  zqd.Scale(jnt.Vel, jnt.Axis)
+  zq2d.Scale(jnt.Acc, jnt.Axis) 
   Rt := jnt.Local.Rot.T()
   wi.Mul(Rt, wp)
   dwi.Mul(Rt, dwp) 
@@ -248,16 +248,7 @@ func (jnt *Joint) getAngularAcc(wp, dwp *mat.Dense) (*mat.Dense,*mat.Dense) {
   }
   return &wi, &dwi 
 }
-/*
-func (jnt *Joint) getCenterAcc(ap, wi, dwi, rc *mat.Dense) *mat.Dense {
-  var ai mat.Dense 
-  //Rt := jnt.Local.Rot.T()
-  ai.Mul(jnt.Local.Rot.T(), ap)       
-  ai.Add(&ai, Cross(dwi,rc))
-  ai.Add(&ai, Cross(wi,Cross(wi,rc)))
-  return &ai  
-}
-*/
+
 func (jnt *Joint) getLinearAcc(ap, wi, dwi, r *mat.Dense) *mat.Dense {
   var ai mat.Dense   
   // TODO: write for prismatic joint
