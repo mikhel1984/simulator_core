@@ -31,7 +31,7 @@ func linkFromModel(m *urdf.Link) *Link {
   lnk.State.Reset()
   
   // inertial parameters 
-  lnk.Dyn.M = m.GetMass()
+  lnk.Dyn.M = m.GetMass()  
   lnk.Dyn.Rc = mat.NewDense(3,1, m.GetMassCenter()) 
   ii := m.GetInertia() 
   lnk.Dyn.I = mat.NewDense(3,3, []float64 {
@@ -105,45 +105,43 @@ func (v *Link) Find(name string) *Link {
   return nil
 }
 
-func (v *Link) rnea(w, dw, ae *mat.Dense) (*mat.Dense,*mat.Dense) {
-  var wi, dwi, aci, aei *mat.Dense
-  // parent
+func (v *Link) rnea(w, dw, ae *mat.Dense) (*mat.Dense,*mat.Dense) {  
   //println(v.Src.Name)
   //println(ae.At(0,0),ae.At(1,0),ae.At(2,0))
+  wi, dwi, aci, aei := w, dw, ae, ae
   jnt := v.Parent   
   if jnt != nil {
-    wi, dwi = jnt.getAngularAcc(w,dw)
+    //println(jnt.Src.Name)
+    wi, dwi = jnt.getAngularAcc(w,dw)    
     aci = jnt.getLinearAcc(ae, w, dw, v.Dyn.Rc) 
-  } else {
-    wi, dwi, aci, aei = w, dw, ae, ae
-  } 
+    //println(aci.At(0,0),aci.At(1,0),aci.At(2,0)) 
+    //MatPrint(jnt.Local.Rot)
+  }   
   // force / torque
   var fi, taui, tmp mat.Dense
-  fi.Add(wi,Cross(aci,v.Dyn.Rc))
-  fi.Add(&fi,Cross(wi,Cross(wi,v.Dyn.Rc)))
+  fi.Scale(v.Dyn.M, aci)
   taui.Mul(v.Dyn.I,dwi)
   tmp.Mul(v.Dyn.I,wi)
   taui.Add(&taui,Cross(wi,&tmp))
-  taui.Add(&taui,Cross(v.Dyn.Rc,&fi))
   // children 
   for _,jc := range v.Joints {
-    re := jc.Trans.Pos
-    aei = jnt.getLinearAcc(ae,w,dw, re) 
-    f, tau := jc.Child.rnea(wi,dwi,aei)
-    // force
-    var fc mat.Dense
-    fc.Mul(jc.Local.Rot, f) 
+    var fc, re mat.Dense    
+    vnext := jc.Child 
+    re.Sub(vnext.State.Pos,v.State.Pos)
+    aei = jnt.getLinearAcc(ae,w,dw, &re) 
+    f, tau := vnext.rnea(wi,dwi,aei)
+    // force    
+    fc.Mul(jc.Local.Rot,f) 
     fi.Add(&fi,&fc)
     // torque
     tmp.Mul(jc.Local.Rot, tau)
-    taui.Add(&taui,&tmp) 
-    if jnt != nil {
-      tmp.Sub(jnt.Trans.Pos,v.Dyn.Rc)
-    }
-    taui.Add(&taui,Cross(&tmp,&fc))    
+    taui.Add(&taui,&tmp)
+    tmp.Sub(v.Dyn.Rc,&re)    
+    taui.Add(&taui,Cross(&fc,&tmp))    
   }
+  taui.Sub(&taui,Cross(&fi,v.Dyn.Rc))
 
-  if jnt != nil && jnt.Type != joint_Fixed {
+  if jnt != nil && jnt.Type != joint_Fixed {    
     jnt.Tau = 0
     for i := 0; i < 3; i++ {
       jnt.Tau += taui.At(i,0) * jnt.Local.Pos.At(i,0)
@@ -261,7 +259,7 @@ func (jnt *Joint) getLinearAcc(ap, wi, dwi, r *mat.Dense) *mat.Dense {
   if jnt != nil {
     ai.Mul(jnt.Local.Rot.T(), ap)
   } else {
-    ai.Scale(1,zero31())
+    ai.Scale(1,ap)
   }
   ai.Add(&ai, Cross(dwi,r))
   ai.Add(&ai, Cross(wi,Cross(wi,r)))
