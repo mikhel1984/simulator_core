@@ -109,7 +109,7 @@ func (v *Link) rnea(w, dw, ae *mat.Dense) (*mat.Dense,*mat.Dense) {
   //println(v.Src.Name)
   //println(ae.At(0,0),ae.At(1,0),ae.At(2,0))
   wi, dwi, aci, aei := w, dw, ae, ae
-  jnt := v.Parent   
+  jnt := v.Parent 
   if jnt != nil {
     //println(jnt.Src.Name)
     wi, dwi = jnt.getAngularAcc(w,dw)    
@@ -139,23 +139,28 @@ func (v *Link) rnea(w, dw, ae *mat.Dense) (*mat.Dense,*mat.Dense) {
     tmp.Sub(v.Dyn.Rc,&re)    
     taui.Add(&taui,Cross(&fc,&tmp))    
   }
-  taui.Sub(&taui,Cross(&fi,v.Dyn.Rc))
+  taui.Add(&taui,Cross(v.Dyn.Rc,&fi))
 
-  if jnt != nil && jnt.Type != joint_Fixed {    
-    jnt.Tau = 0
-    for i := 0; i < 3; i++ {
-      jnt.Tau += taui.At(i,0) * jnt.Local.Pos.At(i,0)
+  if jnt != nil {
+    switch jnt.Type {
+    case joint_Rx:
+      jnt.Tau = taui.At(0,0)
+    case joint_Ry:
+      jnt.Tau = taui.At(1,0)
+    case joint_Rz:
+      jnt.Tau = taui.At(2,0)
     }
-  // add friction
-  }
-  
+    // add friction
+  }  
+  //println(taui.At(0,0),taui.At(1,0),taui.At(2,0))
+    
   return &fi, &taui  
 }
 
 func (v *Link) UpdateDyn(g float64) {
   zer := zero31()
   acc := zero31()
-  acc.Set(2,0,-g)
+  acc.Set(2,0,-g)  
   v.rnea(zer, zer, acc)
 }
 
