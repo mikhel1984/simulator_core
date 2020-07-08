@@ -57,29 +57,6 @@ func (dst *Transform) Apply(t *Transform) {
   dst.Rot.Mul(dst.Rot, t.Rot)   // R2 *= R1   
 }
 
-/*
-func GetTransform(jt JointType, q float64) *Transform {
-  res := Transform {} 
-  res.Reset() 
-  switch jt {
-  case joint_Tx:
-    res.Pos = Txyz(q,0,0) 
-  case joint_Ty:
-    res.Pos = Txyz(0,q,0)
-  case joint_Tz:
-    res.Pos = Txyz(0,0,q)
-  case joint_Rx:
-    res.Rot = Rx(q)
-  case joint_Ry:
-    res.Rot = Ry(q)
-  case joint_Rz:
-    res.Rot = Rz(q) 
-  //default:
-  }
-  return &res 
-}
-*/
-
 // Apply joint transformation 
 func (dst *Transform) ApplyJoint(tp JointType, q float64) {
   var tmp mat.Dense
@@ -182,10 +159,6 @@ func RPY(w,p,r float64) *mat.Dense {
 func Txyz(x,y,z float64) *mat.Dense {
   return mat.NewDense(3,1, []float64{x,y,z})
 }
-  
-//func Txyz(x,y,z float64) *mat.Matrix {
-//  return mat.New(3,1, []float64{x,y,z})
-//}
 
 func jacEmpty(cols int) *mat.Dense {
   return mat.NewDense(6,cols,nil)
@@ -196,4 +169,26 @@ func MatPrint(m mat.Matrix) {
   fmt.Printf("%v", f) 
 }
 
- 
+type Ode func(float64,*mat.Dense) *mat.Dense 
+
+func OdeSolver(fn Ode, t0 float64, x0 *mat.Dense, step, tn float64) *mat.Dense {
+  var xn, tmp mat.Dense 
+  xn.Scale(1, x0)  
+  step2 := 0.5 * step 
+  for t := t0+step; t <= tn; t += step {
+    // coefficients
+    k1 := fn(t,&xn) 
+    tmp.Scale(step2, k1); tmp.Add(&tmp, &xn)
+    k2 := fn(t+step2, &tmp)
+    tmp.Scale(step2, k2); tmp.Add(&tmp, &xn) 
+    k3 := fn(t+step2, &tmp) 
+    tmp.Scale(step, k3); tmp.Add(&tmp, &xn)
+    k4 := fn(t+step, &tmp)
+    // find result
+    tmp.Scale(step/6, k1); xn.Add(&xn, &tmp)
+    tmp.Scale(step/3, k2); xn.Add(&xn, &tmp)
+    tmp.Scale(step/3, k3); xn.Add(&xn, &tmp)
+    tmp.Scale(step/6, k4); xn.Add(&xn, &tmp) 
+  }
+  return &xn 
+} 

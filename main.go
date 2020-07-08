@@ -17,7 +17,7 @@ func main() {
   base:= rigid.BodyTree(model)
   //println(base.Src.Name)
   
-  qs := make(map[string][3]float64) 
+  qs := make(map[string][3]float64)
   qs["joint1"] = [3]float64{ 0.1,0.5,1}
   qs["joint2"] = [3]float64{-0.2,0.5,1}
   qs["joint3"] = [3]float64{ 0.3,0.5,1}
