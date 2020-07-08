@@ -63,15 +63,15 @@ func (dst *Transform) ApplyJoint(tp JointType, q float64) {
   switch tp {
   case joint_Tx:
     tmp.Mul(dst.Rot, Txyz(q,0,0))
-    dst.Pos.Add(&tmp,dst.Pos)    
+    dst.Pos.Add(&tmp,dst.Pos)
   case joint_Ty:
     tmp.Mul(dst.Rot,Txyz(0,q,0))
-    dst.Pos.Add(&tmp,dst.Pos)    
+    dst.Pos.Add(&tmp,dst.Pos)
   case joint_Tz:
     tmp.Mul(dst.Rot, Txyz(0,0,q))
-    dst.Pos.Add(&tmp,dst.Pos)    
+    dst.Pos.Add(&tmp,dst.Pos)
   case joint_Rx:
-    dst.Rot.Mul(dst.Rot, Rx(q))    
+    dst.Rot.Mul(dst.Rot, Rx(q))
   case joint_Ry:    
     dst.Rot.Mul(dst.Rot, Ry(q))
   case joint_Rz:    

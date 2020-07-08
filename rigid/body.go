@@ -21,7 +21,7 @@ type Link struct {
 type Inertial struct {
   I     *mat.Dense   // inertia matrix 
   Rc    *mat.Dense   // mass center 
-  M     float64   // link mass 
+  M     float64      // link mass 
 }
 
 // Link constructor based on URDF
@@ -80,13 +80,13 @@ func (v *Link) Predecessors() []*Joint {
 }
 
 // Calculate Jacobian matrix 
-func (v *Link) Jacobian(mov []*Joint) *mat.Dense {
+func (ee *Link) Jacobian(mov []*Joint) *mat.Dense {
   if mov == nil {
-    mov = v.Predecessors()
+    mov = ee.Predecessors()
   }
   jac := jacEmpty(len(mov)) 
   for i,jnt := range mov {
-    jnt.Child.State.toColumn(jac, i, jnt.Type, v.State.Pos)
+    jnt.Child.State.toColumn(jac, i, jnt.Type, ee.State.Pos)
   }
   return jac
 }
@@ -113,8 +113,7 @@ func (v *Link) rnea(w, dw, ae *mat.Dense) (*mat.Dense,*mat.Dense) {
   var fi, taui, tmp, fc mat.Dense
   fi.Scale(v.Dyn.M,aci)
   taui.Mul(v.Dyn.I,dwi)
-  tmp.Mul(v.Dyn.I,wi)
-  taui.Add(&taui,Cross(wi,&tmp))
+  tmp.Mul(v.Dyn.I,wi);   taui.Add(&taui,Cross(wi,&tmp))
   // children 
   for _,jc := range v.Joints {
     aei := jnt.getLinearAcc(ae,wi,dwi, jc.Local.Pos) 
@@ -123,21 +122,17 @@ func (v *Link) rnea(w, dw, ae *mat.Dense) (*mat.Dense,*mat.Dense) {
     fc.Mul(jc.Local.Rot,f)
     fi.Add(&fi,&fc)
     // torque
-    tmp.Mul(jc.Local.Rot, tau)
-    taui.Add(&taui,&tmp)
-    tmp.Sub(v.Dyn.Rc,jc.Local.Pos)
-    taui.Add(&taui,Cross(&fc,&tmp))
+    tmp.Mul(jc.Local.Rot, tau);     taui.Add(&taui,&tmp)
+    tmp.Sub(v.Dyn.Rc,jc.Local.Pos); taui.Add(&taui,Cross(&fc,&tmp))
   }
   taui.Sub(&taui,Cross(&fi,v.Dyn.Rc))
 
   if jnt != nil {
     switch jnt.Type {
-    case joint_Rx:
-      jnt.Tau = taui.At(0,0)
-    case joint_Ry:
-      jnt.Tau = taui.At(1,0)
-    case joint_Rz:
-      jnt.Tau = taui.At(2,0)
+    case joint_Rx, joint_Ry, joint_Rz:
+      jnt.Tau = taui.At(int(jnt.Type)-3,0)
+    case joint_Tx, joint_Ty, joint_Tz:
+      jnt.Tau = fi.At(int(jnt.Type),0) 
     }
     // add friction
   }  
@@ -145,11 +140,11 @@ func (v *Link) rnea(w, dw, ae *mat.Dense) (*mat.Dense,*mat.Dense) {
   return &fi, &taui  
 }
 
-func (v *Link) UpdateDyn(g float64) {
+func (base *Link) UpdateDyn(g float64) {
   zer := zero31()
   acc := zero31()
   acc.Set(2,0,g)  
-  v.rnea(zer, zer, acc)
+  base.rnea(zer, zer, acc)
 }
 
 func ReadTorques(mov []*Joint) *mat.Dense {
@@ -203,9 +198,9 @@ func jointFromModel(m *urdf.Joint) *Joint {
   v = m.GetRpy()
   jnt.Trans.Rot = RPY(v[0],v[1],v[2])
   // local transformation 
-  jnt.Local.Rot = eye33()
-  jnt.Local.Pos = zero31()
+  jnt.Local.Rot = eye33()  
   jnt.Local.Rot.Copy(jnt.Trans.Rot) 
+  jnt.Local.Pos = zero31()
   jnt.Local.Pos.Copy(jnt.Trans.Pos)
   jnt.Axis = getJointAxis(jnt.Type)
   return jnt
