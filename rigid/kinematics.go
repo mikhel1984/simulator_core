@@ -191,7 +191,7 @@ func jacEmpty(cols int) *mat.Dense {
   return mat.NewDense(6,cols,nil)
 }
 
-func MatPrint(m *mat.Dense) {
+func MatPrint(m mat.Matrix) {
   f := mat.Formatted(m, mat.Prefix(" "), mat.Squeeze())
   fmt.Printf("%v", f) 
 }

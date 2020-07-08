@@ -105,31 +105,30 @@ func (v *Link) Find(name string) *Link {
   return nil
 }
 
-func (v *Link) rnea(w, dw, ae *mat.Dense) (*mat.Dense,*mat.Dense) {  
+func (v *Link) rnea(w, dw, ae *mat.Dense) (*mat.Dense,*mat.Dense) {
   jnt := v.Parent 
   wi, dwi := jnt.getAngularAcc(w,dw) 
-  aci := jnt.getLinearAcc(ae, w, dw, v.Dyn.Rc) 
+  aci := jnt.getLinearAcc(ae, wi, dwi, v.Dyn.Rc) 
   // force / torque
   var fi, taui, tmp, fc mat.Dense
-  fi.Scale(v.Dyn.M, aci)
+  fi.Scale(v.Dyn.M,aci)
   taui.Mul(v.Dyn.I,dwi)
   tmp.Mul(v.Dyn.I,wi)
   taui.Add(&taui,Cross(wi,&tmp))
   // children 
   for _,jc := range v.Joints {
-    vnext := jc.Child 
-    aei := jnt.getLinearAcc(ae,w,dw, jc.Local.Pos) 
-    f, tau := vnext.rnea(wi,dwi,aei)
+    aei := jnt.getLinearAcc(ae,wi,dwi, jc.Local.Pos) 
+    f, tau := jc.Child.rnea(wi,dwi,aei)
     // force    
-    fc.Mul(jc.Local.Rot,f) 
+    fc.Mul(jc.Local.Rot,f)
     fi.Add(&fi,&fc)
     // torque
     tmp.Mul(jc.Local.Rot, tau)
     taui.Add(&taui,&tmp)
-    tmp.Sub(v.Dyn.Rc,jc.Local.Pos)    
-    taui.Add(&taui,Cross(&fc,&tmp))    
+    tmp.Sub(v.Dyn.Rc,jc.Local.Pos)
+    taui.Add(&taui,Cross(&fc,&tmp))
   }
-  taui.Add(&taui,Cross(v.Dyn.Rc,&fi))
+  taui.Sub(&taui,Cross(&fi,v.Dyn.Rc))
 
   if jnt != nil {
     switch jnt.Type {
@@ -236,21 +235,21 @@ func (jnt *Joint) getAngularAcc(wp, dwp *mat.Dense) (*mat.Dense,*mat.Dense) {
   }
   var wi, dwi, zqd, zq2d mat.Dense 
   zqd.Scale(jnt.Vel, jnt.Axis)
-  zq2d.Scale(jnt.Acc, jnt.Axis) 
-  Rt := jnt.Local.Rot.T()
+  zq2d.Scale(jnt.Acc, jnt.Axis)
+  Rt := jnt.Local.Rot.T()  
   wi.Mul(Rt, wp)
   dwi.Mul(Rt, dwp) 
   switch jnt.Type {
-  case joint_Rx, joint_Ry, joint_Rz: 
+  case joint_Rx, joint_Ry, joint_Rz:
     wi.Add(&wi, &zqd) 
     dwi.Add(&dwi, &zq2d)
-    dwi.Add(&dwi, Cross(&wi, &zqd)) 
+    dwi.Add(&dwi, Cross(&wi, &zqd))
   }
-  return &wi, &dwi 
+  return &wi, &dwi
 }
 
 func (jnt *Joint) getLinearAcc(ap, wi, dwi, r *mat.Dense) *mat.Dense {
-  var ai mat.Dense   
+   var ai mat.Dense   
   // TODO: write for prismatic joint
   if jnt != nil {
     ai.Mul(jnt.Local.Rot.T(), ap)
