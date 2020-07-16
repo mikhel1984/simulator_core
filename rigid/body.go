@@ -105,6 +105,7 @@ func (v *Link) Find(name string) *Link {
   return nil
 }
 
+// Use recursive Newton-Euler dymanic calculation
 func (v *Link) rnea(w, dw, ae *mat.Dense) (*mat.Dense,*mat.Dense) {
   jnt := v.Parent 
   wi, dwi := jnt.getAngularAcc(w,dw) 
@@ -140,6 +141,7 @@ func (v *Link) rnea(w, dw, ae *mat.Dense) (*mat.Dense,*mat.Dense) {
   return &fi, &taui  
 }
 
+// Find dymanical state using RNEA algorithm
 func (base *Link) UpdateDyn(g float64) {
   zer := zero31()
   acc := zero31()
@@ -254,6 +256,10 @@ func (jnt *Joint) getLinearAcc(ap, wi, dwi, r *mat.Dense) *mat.Dense {
   ai.Add(&ai, Cross(dwi,r))
   ai.Add(&ai, Cross(wi,Cross(wi,r)))
   return &ai 
+}
+
+func (jnt *Joint) InRange(q float64) bool {
+  return jnt.Limit[0] <= q && q <= jnt.Limit[1] 
 }
 
 
