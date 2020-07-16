@@ -20,7 +20,7 @@ func stringToList(s string) []float64 {
 type Model struct {
   XMLName xml.Name `xml:"robot"`
   Joints []Joint   `xml:"joint"`
-  Links  []Link    `xml:"link"` 
+  Links  []Link    `xml:"link"`
 }
 
 /* func (m *Model) ParseData() {
@@ -41,7 +41,8 @@ type Joint struct {
   Child   Child    `xml:"child"` 
   Axis    Axis_    `xml:"axis"`
   Limit   Limit_    `xml:"limit"` 
-  Dynamics Dynamics `xml:"dynamics"`   
+  Dynamics Dynamics `xml:"dynamics"` 
+  General6ik string `xml:"general6ik"` // Define initial configuration if generalized approach can be applied
 }
 
 /* func (v *Joint) parseData() {
@@ -222,6 +223,7 @@ type Inertia struct {
   Iyz     string   `xml:"iyz,attr"`
   Izz     string   `xml:"izz,attr"`  
 }
+
 
 
 /* func (v *Inertia) parseData() {

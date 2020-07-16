@@ -8,6 +8,8 @@
     <limit effort="3000" lower="-3.14" upper="3.14" velocity="2.26893"/>
     <!--  bound +-185 limit effort ? and dynamics? -->
     <dynamics damping="125" friction="155"/>
+    <!-- Initial deflection if the generalized ik solution for 6 joint robot can be applied -->
+    <general6ik>0</general6ik> 
   </joint>
   <joint name="joint2" type="revolute">
     <origin rpy="0 0 0" xyz="0.312 0 0.324"/>
@@ -17,6 +19,7 @@
     <limit effort="1000" lower="-1.0472" upper="1.32645" velocity="2.00713"/>
     <!--  limit effort, boudns? range=136 ? ? and dynamics? -->
     <dynamics damping="72" friction="50"/>
+    <general6ik>0</general6ik>
   </joint>
   <joint name="joint3" type="revolute">
     <origin rpy="0 0 0" xyz="0 0 1.075"/>
@@ -26,6 +29,7 @@
     <limit effort="1000" lower="-1.83259" upper="1.8726" velocity="2.18166"/>
     <!--  limit effort, boudns? range=312 ? and dynamics? -->
     <dynamics damping="15" friction="48"/>
+    <general6ik>0</general6ik>
   </joint>
   <joint name="joint4" type="revolute">
     <origin rpy="0 0 0" xyz="0 0 0.225"/>
@@ -35,6 +39,7 @@
     <limit effort="940" lower="-3.14" upper="3.14" velocity="3.14159"/>
     <!--  limit effort =moment ? and dynamics? -->
     <dynamics damping="1" friction="1"/>
+    <general6ik>0</general6ik>
   </joint>
   <joint name="joint5" type="revolute">
     <origin rpy="0 0 0" xyz="1.28 0 0"/>
@@ -44,6 +49,7 @@
     <limit effort="940" lower="-2.18166" upper="2.18166" velocity="3.14159"/>
     <!--  limit, bound? range=250 effort ? and dynamics? -->
     <dynamics damping="1" friction="1"/>
+    <general6ik>0</general6ik>
   </joint>
   <joint name="joint6" type="revolute">
     <origin rpy="0 0 0" xyz="0.215 0 0"/>
@@ -53,6 +59,7 @@
     <limit effort="490" lower="-3.14" upper="3.14" velocity="4.53786"/>
     <!--  limit effort ? and dynamics? -->
     <dynamics damping="1" friction="1"/>
+    <general6ik>0</general6ik>
   </joint>
   <link name="link1">
     <inertial>
@@ -454,5 +461,8 @@
     <child link="link1"/>
     <origin rpy="0 0 0" xyz="0 0 0"/>
   </joint>
+
+
+  
 </robot>
 
