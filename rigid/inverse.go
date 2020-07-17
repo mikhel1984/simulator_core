@@ -12,6 +12,7 @@ type Ik6_Geometry struct {
   Dq [6]float64  // "deflections" in joints
   Name [6]string // joint names 
   Q  *mat.Dense  // matrix of solutions, each solution in separate column
+  R  *mat.Dense  // correct rotation 
 }
 
 // Inverse kinematics
@@ -19,9 +20,11 @@ type Ik6_Geometry struct {
 // Based on Mathias Brandstotter, "An analytical solution of the inverse kinematics problem of industrial serial manipulators ..."
 func (par *Ik6_Geometry) IkFull(rot, pos *mat.Dense) {
   // axis intersection point
-  desPos := mat.DenseCopyOf(rot.Slice(0, 3, 2, 3))
+  var R mat.Dense 
+  R.Mul(rot,par.R) 
+  desPos := mat.DenseCopyOf(R.Slice(0, 3, 2, 3))
   desPos.Scale(par.C[4], desPos)
-  desPos.Sub(pos, desPos) // pos - c4 * rot * [0 0 1]^T
+  desPos.Sub(pos, desPos) // pos - c4 * R * [0 0 1]^T
 
   // auxilary
   cx, cy, cz := desPos.At(0, 0), desPos.At(1, 0), desPos.At(2, 0)
@@ -79,7 +82,7 @@ func (par *Ik6_Geometry) IkFull(rot, pos *mat.Dense) {
     sin1 := math.Sin(res.At(0, col))
     cos23 := math.Cos(res.At(1, col) + res.At(2, col))
     sin23 := math.Sin(res.At(1, col) + res.At(2, col))
-    res.Set(3, col, math.Atan2(rot.At(1, 2)*cos1-rot.At(0, 2)*sin1, rot.At(0, 2)*cos23*cos1+rot.At(1, 2)*cos23*sin1-rot.At(2, 2)*sin23))
+    res.Set(3, col, math.Atan2(R.At(1, 2)*cos1-R.At(0, 2)*sin1, R.At(0, 2)*cos23*cos1+R.At(1, 2)*cos23*sin1-R.At(2, 2)*sin23))
     res.Set(3, 4+col, res.At(3, col)+math.Pi)
   }
   // joint 5
@@ -88,7 +91,7 @@ func (par *Ik6_Geometry) IkFull(rot, pos *mat.Dense) {
     sin1 := math.Sin(res.At(0, col))
     cos23 := math.Cos(res.At(1, col) + res.At(2, col))
     sin23 := math.Sin(res.At(1, col) + res.At(2, col))
-    mp := rot.At(0, 2)*sin23*cos1 + rot.At(1, 2)*sin23*sin1 + rot.At(2, 2)*cos23
+    mp := R.At(0, 2)*sin23*cos1 + R.At(1, 2)*sin23*sin1 + R.At(2, 2)*cos23
     res.Set(4, col, math.Atan2(math.Sqrt(1-mp*mp), mp))
     res.Set(4, 4+col, -res.At(4, col))
   }
@@ -98,12 +101,12 @@ func (par *Ik6_Geometry) IkFull(rot, pos *mat.Dense) {
     sin1 := math.Sin(res.At(0, col))
     cos23 := math.Cos(res.At(1, col) + res.At(2, col))
     sin23 := math.Sin(res.At(1, col) + res.At(2, col))
-    res.Set(5, col, math.Atan2(rot.At(0, 1)*sin23*cos1+rot.At(1, 1)*sin23*sin1+rot.At(2, 1)*cos23, -rot.At(0, 0)*sin23*cos1-rot.At(1, 0)*sin23*sin1-rot.At(2, 0)*cos23))
+    res.Set(5, col, math.Atan2(R.At(0, 1)*sin23*cos1+R.At(1, 1)*sin23*sin1+R.At(2, 1)*cos23, -R.At(0, 0)*sin23*cos1-R.At(1, 0)*sin23*sin1-R.At(2, 0)*cos23))
     res.Set(5, 4+col, res.At(5, col)-math.Pi)
   }
   
   // update joint state 
-  //pi2 := 2*math.Pi
+  pi2 := 2*math.Pi
   for c := 0; c < 8; c++ {
     for r := 0; r < 6; r++ {
       q := par.Q.At(r,c)
@@ -111,13 +114,13 @@ func (par *Ik6_Geometry) IkFull(rot, pos *mat.Dense) {
         continue 
       }      
       // correct shift
-      //q -= par.Dq[r] 
+      q += par.Dq[r] 
       // correct range
-      //if q >= pi2 {
-      //  q -= pi2
-      //} else if q <= -pi2 {
-      //  q += pi2
-      //}
+      if q >= pi2 {
+        q -= pi2
+      } else if q <= -pi2 {
+        q += pi2
+      }
       par.Q.Set(r,c,q)
     }
   }
@@ -164,4 +167,52 @@ func (par *Ik6_Geometry) SetTo(qs map[string][]float64, col int) {
   for i,nm := range par.Name {
     qs[nm][0] = par.Q.At(i,col) 
   }
+}
+
+// Find parameters if the robot IK can be calculated
+// via analytical solution for 6 joints 
+func (base *Link) FindIk6Param(ee *Link) *Ik6_Geometry {
+  mov := ee.Predecessors()
+  if len(mov) != 6 {
+    // sequence of 6 movable joints is expected
+    return nil 
+  }  
+  // parse joint data 
+  var par Ik6_Geometry
+  for i, jnt := range mov {    
+    if disp,ok := jnt.Src.Get6ikDeflection(); ok {
+      par.Dq[i] = disp 
+      par.Name[i] = jnt.Src.Name 
+    } else {
+      return nil
+    }
+  }  
+  // update system state  
+  qs := MakeJointMap(mov) 
+  for i,nm := range par.Name {
+    qs[nm][0] = par.Dq[i] 
+  }  
+  base.UpdateState(qs) 
+  // a1, c1 
+  pos := mov[1].Child.State.Pos   // second joint position 
+  par.A[1] = pos.At(0,0)
+  par.C[1] = pos.At(2,0)
+  // c2 
+  var diff mat.Dense 
+  diff.Sub(mov[2].Child.State.Pos,pos)
+  par.C[2] = diff.At(2,0)
+  // c3, a2 
+  pos = mov[4].Child.State.Pos
+  diff.Sub(pos,mov[2].Child.State.Pos) 
+  par.C[3] = diff.At(2,0)
+  par.A[2] = diff.At(0,0) 
+  // c4, b 
+  diff.Sub(ee.State.Pos, pos)
+  par.C[4] = diff.At(2,0)
+  par.B = -pos.At(1,0) 
+  
+  par.Q = mat.NewDense(6,8,nil) 
+  par.R = mat.DenseCopyOf(ee.State.Rot.T()) 
+  
+  return &par 
 }

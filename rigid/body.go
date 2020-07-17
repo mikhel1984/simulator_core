@@ -159,52 +159,7 @@ func ReadTorques(mov []*Joint) *mat.Dense {
   return res
 }
 
-// Find parameters if the robot IK can be calculated
-// via analytical solution for 6 joints 
-func (base *Link) FindIk6Param(ee *Link) *Ik6_Geometry {
-  mov := ee.Predecessors()
-  if len(mov) != 6 {
-    // sequence of 6 movable joints is expected
-    return nil 
-  }  
-  // parse joint data 
-  var par Ik6_Geometry
-  for i, jnt := range mov {    
-    if disp,ok := jnt.Src.Get6ikDeflection(); ok {
-      par.Dq[i] = disp 
-      par.Name[i] = jnt.Src.Name 
-    } else {
-      return nil
-    }
-  }  
-  // update system state  
-  qs := MakeJointMap(mov) 
-  for i,nm := range par.Name {
-    qs[nm][0] = par.Dq[i] 
-  }  
-  base.UpdateState(qs) 
-  // a1, c1 
-  pos := mov[1].Child.State.Pos   // second joint position 
-  par.A[1] = pos.At(0,0)
-  par.C[1] = pos.At(2,0)
-  // c2 
-  var diff mat.Dense 
-  diff.Sub(mov[2].Child.State.Pos,pos)
-  par.C[2] = diff.At(2,0)
-  // c3, a2 
-  pos = mov[4].Child.State.Pos
-  diff.Sub(pos,mov[2].Child.State.Pos) 
-  par.C[3] = diff.At(2,0)
-  par.A[2] = diff.At(0,0) 
-  // c4, b 
-  diff.Sub(ee.State.Pos, pos)
-  par.C[4] = diff.At(2,0)
-  par.B = -pos.At(1,0) 
-  
-  par.Q = mat.NewDense(6,8,nil) 
-  
-  return &par 
-}
+
 
 type Joint struct {
   // source 
