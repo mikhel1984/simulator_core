@@ -29,7 +29,7 @@
     <limit effort="1000" lower="-1.83259" upper="1.8726" velocity="2.18166"/>
     <!--  limit effort, boudns? range=312 ? and dynamics? -->
     <dynamics damping="15" friction="48"/>
-    <general6ik>0</general6ik>
+    <general6ik>-1.57</general6ik>
   </joint>
   <joint name="joint4" type="revolute">
     <origin rpy="0 0 0" xyz="0 0 0.225"/>

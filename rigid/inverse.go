@@ -10,15 +10,14 @@ type Ik6_Geometry struct {
   B  float64
   C  [5]float64
   Dq [6]float64  // "deflections" in joints
+  Name [6]string // joint names 
   Q  *mat.Dense  // matrix of solutions, each solution in separate column
 }
 
-// TODO extract Ik6_Geometry from the robot tree 
-
-
 // Inverse kinematics
 // Return matrix with 8 solutions
-func (par *Ik6_Geometry) IkFull(rot, pos *mat.Dense) *mat.Dense {
+// Based on Mathias Brandstotter, "An analytical solution of the inverse kinematics problem of industrial serial manipulators ..."
+func (par *Ik6_Geometry) IkFull(rot, pos *mat.Dense) {
   // axis intersection point
   desPos := mat.DenseCopyOf(rot.Slice(0, 3, 2, 3))
   desPos.Scale(par.C[4], desPos)
@@ -102,8 +101,26 @@ func (par *Ik6_Geometry) IkFull(rot, pos *mat.Dense) *mat.Dense {
     res.Set(5, col, math.Atan2(rot.At(0, 1)*sin23*cos1+rot.At(1, 1)*sin23*sin1+rot.At(2, 1)*cos23, -rot.At(0, 0)*sin23*cos1-rot.At(1, 0)*sin23*sin1-rot.At(2, 0)*cos23))
     res.Set(5, 4+col, res.At(5, col)-math.Pi)
   }
-
-  return res
+  
+  // update joint state 
+  //pi2 := 2*math.Pi
+  for c := 0; c < 8; c++ {
+    for r := 0; r < 6; r++ {
+      q := par.Q.At(r,c)
+      if math.IsNaN(q) {
+        continue 
+      }      
+      // correct shift
+      //q -= par.Dq[r] 
+      // correct range
+      //if q >= pi2 {
+      //  q -= pi2
+      //} else if q <= -pi2 {
+      //  q += pi2
+      //}
+      par.Q.Set(r,c,q)
+    }
+  }
 }
 
 // Find closest solution for the previous state
@@ -115,7 +132,6 @@ func (par *Ik6_Geometry) Closest(prev []float64) int {
   // find closest colution
   col := -1 
   minimal := math.Inf(1) 
-  pi2 := 2*math.Pi
   for c := 0; c < 8; c++ {     // at most 8 solutions
     diff := 0.0
     for r := 0; r < 6; r++ {   // for 6 joint robot only
@@ -124,15 +140,6 @@ func (par *Ik6_Geometry) Closest(prev []float64) int {
         diff = math.Inf(1)
         continue 
       }
-      // correct shift
-      q -= par.Dq[r] 
-      // correct range
-      if q >= pi2 {
-        q -= pi2
-      } else if q <= -pi2 {
-        q += pi2
-      }
-      par.Q.Set(r,c,q)
       // find maximal distance
       diff += math.Abs(q-prev[r])
     }
@@ -143,4 +150,18 @@ func (par *Ik6_Geometry) Closest(prev []float64) int {
     }
   }
   return col 
+}
+
+func (par *Ik6_Geometry) ClosestTo(qs map[string][]float64) int {
+  prev := []float64{0,0,0,0,0,0}
+  for i,nm := range par.Name {
+    prev[i] = qs[nm][0] 
+  }
+  return par.Closest(prev) 
+}
+
+func (par *Ik6_Geometry) SetTo(qs map[string][]float64, col int) {
+  for i,nm := range par.Name {
+    qs[nm][0] = par.Q.At(i,col) 
+  }
 }

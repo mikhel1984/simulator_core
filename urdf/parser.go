@@ -45,6 +45,14 @@ type Joint struct {
   General6ik string `xml:"general6ik"` // Define initial configuration if generalized approach can be applied
 }
 
+func (v *Joint) Get6ikDeflection() (float64, bool) {
+  num, res := strconv.ParseFloat(v.General6ik, 64)
+  if res != nil {
+    return 0, false 
+  }
+  return num, true 
+}
+
 /* func (v *Joint) parseData() {
   v.Origin.parseData()
   v.Axis.parseData() 
