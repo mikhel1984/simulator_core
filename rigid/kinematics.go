@@ -121,7 +121,8 @@ func (t *Transform) ToH() *mat.Dense {
 }*/
 
 func Rx(q float64) *mat.Dense {
-  s,c := math.Sin(q), math.Cos(q)
+  //s,c := math.Sin(q), math.Cos(q)
+  s,c := math.Sincos(q)
   return mat.NewDense(3,3, []float64{
      1, 0, 0,
      0, c,-s,
@@ -129,7 +130,8 @@ func Rx(q float64) *mat.Dense {
 }
 
 func Ry(q float64) *mat.Dense {
-  s,c := math.Sin(q), math.Cos(q)
+  //s,c := math.Sin(q), math.Cos(q)
+  s,c := math.Sincos(q)
   return mat.NewDense(3,3, []float64{
      c, 0, s,
      0, 1, 0,
@@ -137,7 +139,8 @@ func Ry(q float64) *mat.Dense {
 }
 
 func Rz(q float64) *mat.Dense {
-  s,c := math.Sin(q), math.Cos(q)
+  //s,c := math.Sin(q), math.Cos(q)
+  s,c := math.Sincos(q)
   return mat.NewDense(3,3, []float64{
      c,-s, 0,
      s, c, 0,
@@ -146,9 +149,12 @@ func Rz(q float64) *mat.Dense {
 
 func RPY(w,p,r float64) *mat.Dense {
   // yaw - X, pitch - Y, roll - Z
-  sw, cw := math.Sin(w), math.Cos(w)
-  sp, cp := math.Sin(p), math.Cos(p)
-  sr, cr := math.Sin(r), math.Cos(r)
+  //sw, cw := math.Sin(w), math.Cos(w)
+  sw, cw := math.Sincos(w)
+  //sp, cp := math.Sin(p), math.Cos(p)
+  sp, cp := math.Sincos(p)
+  //sr, cr := math.Sin(r), math.Cos(r)
+  sr, cr := math.Sincos(r) 
   ssw, scw := sp*sw, sp*cw
   return mat.NewDense(3,3, []float64{
     cr*cp,-sr*cw+cr*ssw, sr*sw+cr*scw, 

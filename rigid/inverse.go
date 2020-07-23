@@ -78,29 +78,35 @@ func (par *Ik6_Geometry) IkFull(rot, pos *mat.Dense) {
 
   // joint 4
   for col := 0; col < 3; col++ {
-    cos1 := math.Cos(res.At(0, col))
-    sin1 := math.Sin(res.At(0, col))
-    cos23 := math.Cos(res.At(1, col) + res.At(2, col))
-    sin23 := math.Sin(res.At(1, col) + res.At(2, col))
+    //cos1 := math.Cos(res.At(0, col))
+    //sin1 := math.Sin(res.At(0, col))
+    sin1, cos1 := math.Sincos(res.At(0,col))
+    //cos23 := math.Cos(res.At(1, col) + res.At(2, col))
+    //sin23 := math.Sin(res.At(1, col) + res.At(2, col))
+    sin23, cos23 := math.Sincos(res.At(1, col) + res.At(2, col))
     res.Set(3, col, math.Atan2(R.At(1, 2)*cos1-R.At(0, 2)*sin1, R.At(0, 2)*cos23*cos1+R.At(1, 2)*cos23*sin1-R.At(2, 2)*sin23))
     res.Set(3, 4+col, res.At(3, col)+math.Pi)
   }
   // joint 5
   for col := 0; col < 3; col++ {
-    cos1 := math.Cos(res.At(0, col))
-    sin1 := math.Sin(res.At(0, col))
-    cos23 := math.Cos(res.At(1, col) + res.At(2, col))
-    sin23 := math.Sin(res.At(1, col) + res.At(2, col))
+    //cos1 := math.Cos(res.At(0, col))
+    //sin1 := math.Sin(res.At(0, col))
+    sin1, cos1 := math.Sincos(res.At(0, col))
+    //cos23 := math.Cos(res.At(1, col) + res.At(2, col))
+    //sin23 := math.Sin(res.At(1, col) + res.At(2, col))
+    sin23, cos23 := math.Sincos(res.At(1, col) + res.At(2, col))
     mp := R.At(0, 2)*sin23*cos1 + R.At(1, 2)*sin23*sin1 + R.At(2, 2)*cos23
     res.Set(4, col, math.Atan2(math.Sqrt(1-mp*mp), mp))
     res.Set(4, 4+col, -res.At(4, col))
   }
   // joint 6
   for col := 0; col < 3; col++ {
-    cos1 := math.Cos(res.At(0, col))
-    sin1 := math.Sin(res.At(0, col))
-    cos23 := math.Cos(res.At(1, col) + res.At(2, col))
-    sin23 := math.Sin(res.At(1, col) + res.At(2, col))
+    //cos1 := math.Cos(res.At(0, col))
+    //sin1 := math.Sin(res.At(0, col))
+    sin1, cos1 := math.Sincos(res.At(0, col))
+    //cos23 := math.Cos(res.At(1, col) + res.At(2, col))
+    //sin23 := math.Sin(res.At(1, col) + res.At(2, col))
+    sin23, cos23 := math.Sincos(res.At(1, col) + res.At(2, col))
     res.Set(5, col, math.Atan2(R.At(0, 1)*sin23*cos1+R.At(1, 1)*sin23*sin1+R.At(2, 1)*cos23, -R.At(0, 0)*sin23*cos1-R.At(1, 0)*sin23*sin1-R.At(2, 0)*cos23))
     res.Set(5, 4+col, res.At(5, col)-math.Pi)
   }
@@ -155,6 +161,7 @@ func (par *Ik6_Geometry) Closest(prev []float64) int {
   return col 
 }
 
+// Find closest solution based on joint map 
 func (par *Ik6_Geometry) ClosestTo(qs map[string][]float64) int {
   prev := []float64{0,0,0,0,0,0}
   for i,nm := range par.Name {
@@ -163,6 +170,7 @@ func (par *Ik6_Geometry) ClosestTo(qs map[string][]float64) int {
   return par.Closest(prev) 
 }
 
+// Save solution into joint map 
 func (par *Ik6_Geometry) SetTo(qs map[string][]float64, col int) {
   for i,nm := range par.Name {
     qs[nm][0] = par.Q.At(i,col) 
