@@ -4,7 +4,6 @@ import (
   "math"
 )
 
-
 type Path struct {
   Joints  [][]float64 
 }
@@ -21,14 +20,14 @@ func (p Path) GetLinear(s float64, res []float64) bool {
   }
   n1 := float64(n - 1)
   k := n1*s 
-  ik := math.Floor(k)  
+  ik := math.Floor(k)      // int part
   nk := int(ik)
   copy(res, p.Joints[nk])
-  fk := k - ik 
-  if fk > 0 {
-    fk /= n1 
+  k -= ik                 // float part 
+  if k > 0 {
+    k /= n1 
     for i := 0; i < len(res); i++ {
-      res[i] += (p.Joints[nk+1][i]-res[i])*fk   // res[i] == p.Joints[nk][i] 
+      res[i] += (p.Joints[nk+1][i]-res[i])*k   // res[i] == p.Joints[nk][i] 
     }
   }
   return true 
