@@ -66,8 +66,6 @@ func main() {
   
   pp := rigid.Polynomial{1,2,3} 
   println(pp.Val(2)) 
-  pp2 := pp.Der()
-  println(pp2.Val(2))
   println(pp.Val1d(2))
   println(pp.Val2d(3))
   

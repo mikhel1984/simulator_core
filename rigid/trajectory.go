@@ -35,6 +35,7 @@ func (p Path) GetLinear(s float64, res []float64) bool {
   return true 
 }
 
+// Use arrays as polynomial coefficients
 type Polynomial []float64 
 
 // Find value 
@@ -42,21 +43,6 @@ func (p Polynomial) Val(x float64) float64 {
   res := p[0]
   for i := 1; i < len(p); i++ {
     res = res * x + p[i] 
-  }
-  return res 
-}
-
-// Derivative
-func (p Polynomial) Der() Polynomial {
-  var res Polynomial 
-  if len(p) > 1 {
-    n := len(p)-1
-    res = make([]float64,n) 
-    for i := 0; i < n; i++ {
-      res[i] = float64(n-i) * p[i]
-    }
-  } else {
-    res = Polynomial{0}
   }
   return res 
 }
@@ -92,36 +78,72 @@ func (p Polynomial) Val2d (x float64) float64 {
   return res 
 }
 
-
+// Derivative
 /*
-func TrapezProfile(d, vmax, amax float64) *Path {
-  var p Path
-  ta := vmax / amax
-  tb := d / vmax 
-  del := 1e-6
-  
-  if tb < ta {
-    // triangle
-    ta = math.Sqrt(d / amax)
-    tb = ta
-    vmax = ta * amax 
-    p.Joints = [][]float64 {
-                 []float64 {0,    0.5*(1-del),  0.5,  0.5*(1+del), 1},   // position
-                 []float64 {0,   vmax*(1-del), vmax, vmax*(1-del), 0},   // velocity
-                 []float64 {amax,        amax,    0,    -amax, -amax},   // acceleration
-               }
-    p.Time = []float64 {0, 0.5-del, 0.5, 0.5+del, 1}
+func (p Polynomial) Der() Polynomial {
+  var res Polynomial 
+  if len(p) > 1 {
+    n := len(p)-1
+    res = make([]float64,n) 
+    for i := 0; i < n; i++ {
+      res[i] = float64(n-i) * p[i]
+    }
   } else {
-    // trapez
-    t1 := ta / (ta + tb)
-    t2 := tb / (ta + tb)
-    p.Joints = [][]float64 {
-                 []float64 {0,   t1*(1-del),   t1,   t2,   t2*(1+del), 1},  // position
-                 []float64 {0, vmax*(1-del), vmax, vmax, vmax*(1-del), 0},  // velocity
-                 []float64 {amax,      amax,    0,    0,    -amax, -amax},  // acceleration
-               }
-    
-    
+    res = Polynomial{0}
   }
+  return res 
 }
 */
+
+// Speed profile prepresentation
+type Profile struct {
+  State [3]Polynomial // [lift off, travel, set down] 
+  Time  []float64     // time markers 
+  T     float64       // total period (minimal)
+  D     float64       // total length 
+}
+
+// Find trapez profile for distance d with limits vmax, amax
+func Trapez(d, vmax, amax float64) *Profile {
+  var p Profile 
+  ta := vmax / amax
+  tb := d / vmax 
+  
+  p.D = d
+  p.State[0] = Polynomial{0.5*amax, 0, 0}
+  p.State[2] = Polynomial{-0.5*amax, 0, 0} 
+  
+  if tb < ta {
+    // triangle 
+    ta = math.Sqrt(d / amax)
+    tb = ta 
+    vmax = ta * amax    
+  } else {
+    // trapez
+    p.State[1] = Polynomial{vmax, (0.5*amax*ta-vmax)*ta} 
+  }
+  p.T = ta + tb
+  p.State[2][1] = (vmax + amax*tb)
+  p.State[2][2] = d - 0.5*amax*p.T*p.T
+  p.Time = []float64{ta, tb, p.T} 
+  
+  return &p 
+}
+
+// Calculate state at time t for the given period 
+func (p *Profile) At(t, period float64, res []float64) bool {
+  if t < 0 || period < p.T {
+    return false
+  }
+  k := (t / period) * p.T    // scaling
+  for i,tm := range p.Time {
+    if k <= tm {
+      poly := p.State[i]
+      res[0] = poly.Val(k) / p.D  // normalized position
+      res[1] = poly.Val1d(k)  // velocity
+      res[2] = poly.Val2d(k)  // acceleration
+      return true
+    }
+  }
+  return false
+}
