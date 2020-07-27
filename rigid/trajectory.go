@@ -111,39 +111,51 @@ func Trapez(d, vmax, amax float64) *Profile {
   
   p.D = d
   p.State[0] = Polynomial{0.5*amax, 0, 0}
-  p.State[2] = Polynomial{-0.5*amax, 0, 0} 
-  
+  p.State[2] = Polynomial{-0.5*amax, 0, 0}
+  ts := ta + tb
+    
   if tb < ta {
     // triangle 
     ta = math.Sqrt(d / amax)
     tb = ta 
-    vmax = ta * amax    
+    vmax = ta * amax
+    ts = ta + tb
   } else {
     // trapez
-    p.State[1] = Polynomial{vmax, (0.5*amax*ta-vmax)*ta} 
+    p.State[1] = Polynomial{vmax*ts, (0.5*amax*ta-vmax)*ta} 
   }
-  p.T = ta + tb
-  p.State[2][1] = (vmax + amax*tb)
-  p.State[2][2] = d - 0.5*amax*p.T*p.T
-  p.Time = []float64{ta, tb, p.T} 
+  p.T = ts
+  p.State[0][0] *= ts*ts
+  p.State[2][0] *= ts*ts
+  p.State[2][1] = (vmax + amax*tb) * ts
+  p.State[2][2] = d - 0.5*amax*ts*ts
+  p.Time = []float64{ta / ts, tb / ts, 1} 
   
   return &p 
 }
 
-// Calculate state at time t for the given period 
-func (p *Profile) At(t, period float64, res []float64) bool {
-  if t < 0 || period < p.T {
-    return false
-  }
-  k := (t / period) * p.T    // scaling
-  for i,tm := range p.Time {
-    if k <= tm {
-      poly := p.State[i]
-      res[0] = poly.Val(k) / p.D  // normalized position
-      res[1] = poly.Val1d(k)  // velocity
-      res[2] = poly.Val2d(k)  // acceleration
-      return true
+// Calculate state at relative time k, return absolute time
+func (p *Profile) At(k, period float64, res []float64) float64 {
+  if k < 0 || k > 1 {
+    res[0] = 0
+    res[1] = 0
+    res[2] = 0
+  } else {
+    for i,tm := range p.Time {
+      if k <= tm {
+        poly := p.State[i]
+        res[0] = poly.Val(k) / p.D                 // relative position
+        res[1] = poly.Val1d(k) / period            // velocity
+        res[2] = poly.Val2d(k) / (period * period) // acceleration
+        break
+      }
     }
   }
-  return false
+  return k * period
+}
+
+// Calculate state for relative time and expanded period, return absolute time
+func (p *Profile) AtFactor(k, factor float64, res []float64) float64 {
+  tt := factor * p.T
+  return p.At(k, tt, res) 
 }

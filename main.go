@@ -64,9 +64,21 @@ func main() {
   println()
   println(n)
   
-  pp := rigid.Polynomial{1,2,3} 
-  println(pp.Val(2)) 
-  println(pp.Val1d(2))
-  println(pp.Val2d(3))
+  tr := rigid.Trapez(10, 3, 2)
+  fmt.Println(tr.State[0])
+  fmt.Println(tr.State[1])
+  fmt.Println(tr.State[2])
+  t0 := tr.Time[0]  
+  fmt.Println(tr.Time)
+  t1 := tr.T
+  t2 := t1*2 
+  pt := []float64{0,0,0}
+  
+  tr.At(t0, t1, pt)
+  println()
+  fmt.Println(pt)
+  
+  tr.At(t0, t2, pt)
+  fmt.Println(pt)
   
 }
