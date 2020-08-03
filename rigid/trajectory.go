@@ -4,37 +4,6 @@ import (
   "math"
 )
 
-type Path struct {
-  Joints  [][]float64 
-  //Time    []float64    // when Time != nil use it for steps
-  //Tmin    float64
-}
-
-// Linear interpolation
-// 0 <= s <= 1
-func (p Path) GetLinear(s float64, res []float64) bool {
-  n := len(p.Joints)
-  if  n == 0 || s < 0 || s > 1 {
-    return false
-  } else if n == 1 {
-    copy(res, p.Joints[0])
-    return true 
-  }
-  n1 := float64(n - 1)
-  k := n1*s 
-  ik := math.Floor(k)      // int part
-  nk := int(ik)
-  copy(res, p.Joints[nk])
-  k -= ik                 // float part 
-  if k > 0 {
-    k /= n1 
-    for i := 0; i < len(res); i++ {
-      res[i] += (p.Joints[nk+1][i]-res[i])*k   // res[i] == p.Joints[nk][i] 
-    }
-  }
-  return true 
-}
-
 // Use arrays as polynomial coefficients
 type Polynomial []float64 
 
@@ -94,6 +63,115 @@ func (p Polynomial) Der() Polynomial {
   return res 
 }
 */
+
+type Path struct {
+  Joints  [][]float64 
+  S       []float64    // when S != nil use it for steps
+}
+
+// Find closest index for a given s
+func (p Path) Ind(s float64) int {
+  if s < 0 || s > 1 {
+    return -1
+  }
+  var res int
+  n := len(p.Joints) - 1
+  if p.S == nil {
+    // uniform steps
+    k := s * float64(n)
+    kk := math.Floor(k) 
+    k -= kk 
+    if k <= 0.5 {
+      res = int(kk)
+    } else {
+      res = int(kk) + 1
+    }
+  } else {
+    // explicit steps
+    var iup, idown int = n, 0
+    for iup - idown > 1 {
+      del := (iup - idown) / 2
+      if del == 0 {
+        del = 1
+      }
+      if p.S[iup-del] >= s {
+        iup -= del
+      } else if p.S[idown+del] <= s {
+        idown += del
+      }
+    }
+    if p.S[iup] - s < s - p.S[idown] {
+      res = iup
+    } else {
+      res = idown
+    }
+  }
+  return res
+}
+
+// Linear interpolation
+// 0 <= s <= 1
+func (p Path) GetLinear(s float64, res []float64) bool {
+  n := len(p.Joints)
+  if  n == 0 || s < 0 || s > 1 {
+    return false
+  } else if n == 1 {
+    copy(res, p.Joints[0])
+    return true 
+  }
+  n1 := float64(n - 1)
+  k := n1*s 
+  ik := math.Floor(k)      // int part
+  nk := int(ik)
+  copy(res, p.Joints[nk])
+  k -= ik                 // float part 
+  if k > 0 {
+    k /= n1 
+    for i := 0; i < len(res); i++ {
+      res[i] += (p.Joints[nk+1][i]-res[i])*k   // res[i] == p.Joints[nk][i] 
+    }
+  }
+  return true 
+}
+
+// square interpolation 
+// 0 <= s <= 1
+// return result and interval for s
+func (p Path) GetSquare(s float64, res []Polynomial) (bool, float64, float64) {
+  n := len(p.Joints)-1 
+  m := p.Ind(s) 
+  if m == -1 {
+    return false, 0, 0
+  }
+  // need 3 points
+  if m == 0 {
+    m += 1
+  } else if m == n {
+    m -= 1
+  }
+  // step values
+  var s1, s2, s3 float64
+  if p.S == nil {
+    del := 1 / float64(n) 
+    s2 = del * float64(m)
+    s1 = s2 - del
+    s3 = s2 + del 
+  } else {
+    s1, s2, s3 = p.S[m-1], p.S[m], p.S[m+1]
+  }
+  s11, s22, s33 := s1*s1, s2*s2, s3*s3
+  denom := (s22*s3-s33*s2) - (s11*s3-s33*s1) + (s11*s2-s22*s1)
+  // approximation
+  for i := 0; i < len(res); i++ {
+    q1, q2, q3 := p.Joints[m-1][i], p.Joints[m][i], p.Joints[m+1][i] 
+    res[i][0] = ((q2*s3-q3*s2) - (q1*s3-q3*s1) + (q1*s2-q2*s1)) / denom                 // a
+    res[i][1] = ((s22*q3-s33*q2) - (s11*q3-s33*q1) + (s11*q2-s22*q1)) / denom           // b
+    res[i][2] = ((s22*s3-s33*s2)*q1 - (s11*s3-s33*s1)*q2 + (s11*s2-s22*s1)*q3) / denom  // c    
+  }
+  return true, s1, s3
+}
+
+
 
 // Speed profile prepresentation
 type Profile struct {
