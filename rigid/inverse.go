@@ -224,3 +224,5 @@ func (base *Link) FindIk6Param(ee *Link) *Ik6_Geometry {
   
   return &par 
 }
+
+

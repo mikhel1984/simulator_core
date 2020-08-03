@@ -166,6 +166,45 @@ func Txyz(x,y,z float64) *mat.Dense {
   return mat.NewDense(3,1, []float64{x,y,z})
 }
 
+func toAA(m *mat.Dense) (float64,[]float64,bool) {
+  r11, r22, r33 := m.At(0,0), m.At(1,1), m.At(2,2)
+  rx := m.At(2,1)-m.At(1,2)
+  ry := m.At(0,2)-m.At(2,0)
+  rz := m.At(1,0)-m.At(0,1)
+  theta := math.Atan2(math.Sqrt(rx*rx+ry*ry+rz*rz), r11+r22+r33-1)
+  // no rotation axis when zero
+  if math.Abs(theta) < 1E-10 {
+    return 0, nil, false
+  }
+  sin := math.Sin(theta)
+  // theta is +- PI
+  if math.Abs(sin) < 1E-10 {
+    return theta, []float64{math.Sqrt(0.5*(r11+1)),math.Sqrt(0.5*(r22+1)),math.Sqrt(0.5*(r33+1))}, true
+  }
+  // general case
+  sin *= 2
+  return theta, []float64{rx/sin, ry/sin, rz/sin}, true
+}
+
+func fromAA(theta float64, r []float64) *mat.Dense {
+  if r == nil {
+    return mat.NewDense(4,4, []float64 {
+      1,0,0,
+      0,1,0,
+      0,0,1})
+  }
+  s, c := math.Sincos(theta)
+  c1 := 1-c
+  rx,ry,rz := r[0],r[1],r[2]
+
+  return mat.NewDense(4,4, []float64 {
+    rx*rx*c1+c, rx*ry*c1-rz*s, rx*rz*c1+ry*s,
+    rx*ry*c1+rz*s, ry*ry*c1+c, ry*rz*c1-rx*s,
+    rx*rz*c1-ry*s, ry*rz*c1+rx*s, rz*rz*c1+c})
+}
+
+
+
 func jacEmpty(cols int) *mat.Dense {
   return mat.NewDense(6,cols,nil)
 }

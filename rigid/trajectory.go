@@ -2,6 +2,7 @@ package rigid
 
 import (
   "math"
+//  "gonum.org/v1/gonum/mat"
 )
 
 // Use arrays as polynomial coefficients
@@ -236,3 +237,14 @@ func (p *Profile) At(k, period float64, res []float64) float64 {
 func (p *Profile) AtScale(k, factor float64, res []float64) float64 {
   return p.At(k, factor * p.T, res) 
 }
+
+// function ik (pos, orient, q) (bool) 
+// pos, orient - desirable values 
+// q - current state, return new state here
+// bool - result of evaluation
+
+//func (base *Link) LinRot(qBeg []float64, pEnd, rEnd *mat.Dense, n int, 
+//              func ik([]float64, *mat.Dense, *mat.Dense) bool) Path {
+//  var pt Path 
+//  
+//}
