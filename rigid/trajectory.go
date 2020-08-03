@@ -110,8 +110,8 @@ func Trapez(d, vmax, amax float64) *Profile {
   tb := d / vmax 
   
   p.D = d
-  p.State[0] = Polynomial{0.5*amax, 0, 0}
-  p.State[2] = Polynomial{-0.5*amax, 0, 0}
+  p.State[0] = Polynomial{0.5*amax / d, 0, 0}    // normalize with total distance
+  p.State[2] = Polynomial{-0.5*amax / d, 0, 0}
   ts := ta + tb
     
   if tb < ta {
@@ -122,13 +122,13 @@ func Trapez(d, vmax, amax float64) *Profile {
     ts = ta + tb
   } else {
     // trapez
-    p.State[1] = Polynomial{vmax*ts, (0.5*amax*ta-vmax)*ta} 
+    p.State[1] = Polynomial{vmax*ts / d, (0.5*amax*ta-vmax)*ta / d} 
   }
   p.T = ts
   p.State[0][0] *= ts*ts
   p.State[2][0] *= ts*ts
-  p.State[2][1] = (vmax + amax*tb) * ts
-  p.State[2][2] = d - 0.5*amax*ts*ts
+  p.State[2][1] = (vmax + amax*tb) * ts / d
+  p.State[2][2] = 1 - 0.5*amax*ts*ts / d
   p.Time = []float64{ta / ts, tb / ts, 1} 
   
   return &p 
@@ -144,7 +144,7 @@ func (p *Profile) At(k, period float64, res []float64) float64 {
     for i,tm := range p.Time {
       if k <= tm {
         poly := p.State[i]
-        res[0] = poly.Val(k) / p.D                 // relative position
+        res[0] = poly.Val(k)                       // relative position
         res[1] = poly.Val1d(k) / period            // velocity
         res[2] = poly.Val2d(k) / (period * period) // acceleration
         break
@@ -155,7 +155,6 @@ func (p *Profile) At(k, period float64, res []float64) float64 {
 }
 
 // Calculate state for relative time and expanded period, return absolute time
-func (p *Profile) AtFactor(k, factor float64, res []float64) float64 {
-  tt := factor * p.T
-  return p.At(k, tt, res) 
+func (p *Profile) AtScale(k, factor float64, res []float64) float64 {
+  return p.At(k, factor * p.T, res) 
 }
