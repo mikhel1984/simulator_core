@@ -18,11 +18,29 @@ type Link struct {
   Dyn           Inertial 
 } 
 
+
 // Inertial parameters of link 
 type Inertial struct {
   I     *mat.Dense   // inertia matrix 
   Rc    *mat.Dense   // mass center 
   M     float64      // link mass 
+}
+
+func (src *Link) GetCopy() *Link {
+  var dst Link 
+  dst = *src
+  // tree 
+  for i, jnt := range src.Joints {
+    jj := jnt.GetCopy() 
+    jj.Parent = &dst
+    dst.Joints[i] = jj 
+  }
+  dst.Parent = nil
+  // state
+  dst.State.Reset()
+  dst.State.Set(&src.State)
+  
+  return &dst
 }
 
 // Link constructor based on URDF
@@ -181,6 +199,23 @@ type Joint struct {
   Axis          *mat.Dense    // joint axis 
   // dynamics 
   Tau           float64 
+}
+
+func (src *Joint) GetCopy() *Joint {
+  var dst Joint 
+  dst = *src 
+  // tree 
+  dst.Parent = nil
+  lnk := src.Child.GetCopy() 
+  lnk.Parent = &dst
+  dst.Child = lnk 
+  // transformation
+  dst.Trans.Reset()
+  dst.Trans.Set(&src.Trans)
+  dst.Local.Reset()
+  dst.Local.Set(&src.Local)
+  
+  return &dst
 }
 
 // Joint constructor from URDF 

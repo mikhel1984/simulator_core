@@ -174,7 +174,7 @@ func (p Path) GetSquare(s float64, res []Polynomial) (bool, float64, float64) {
 
 
 
-// Speed profile prepresentation
+// Speed profile representation
 type Profile struct {
   State [3]Polynomial // [lift off, travel, set down] 
   Time  []float64     // time markers 
@@ -244,7 +244,7 @@ func (p *Profile) AtScale(k, factor float64, res []float64) float64 {
 // bool - result of evaluation
 
 //func (base *Link) LinRot(qBeg []float64, pEnd, rEnd *mat.Dense, n int, 
-//              func ik([]float64, *mat.Dense, *mat.Dense) bool) Path {
+//              func ik(*mat.Dense, *mat.Dense, []float64) bool) Path {
 //  var pt Path 
 //  
 //}

@@ -81,4 +81,9 @@ func main() {
   tr.At(t0, t2, pt)
   fmt.Println(pt)
   
+  println()
+  fmt.Println(base)
+  qq := base.GetCopy()
+  fmt.Println(qq)
+  
 }
