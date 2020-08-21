@@ -1,33 +1,37 @@
 package rigid 
 
 import (
-  "gonum.org/v1/gonum/mat"
+  //"gonum.org/v1/gonum/mat"
   "math"
+  "../mat"
 )
 
 type Ik6_Geometry struct {
+  // "standard" parameters
   A  [3]float64
   B  float64
   C  [5]float64
+  // additional parameters
   Dq [6]float64  // "deflections" in joints
   Name [6]string // joint names 
-  Q  *mat.Dense  // matrix of solutions, each solution in separate column
-  R  *mat.Dense  // correct rotation 
+  Q  *mat.Matrix  // matrix of solutions, each solution in separate column
+  R  *mat.Matrix  // correct rotation 
 }
 
 // Inverse kinematics
 // Return matrix with 8 solutions
 // Based on Mathias Brandstotter, "An analytical solution of the inverse kinematics problem of industrial serial manipulators ..."
-func (par *Ik6_Geometry) IkFull(rot, pos *mat.Dense) {
-  // axis intersection point
-  var R mat.Dense 
-  R.Mul(rot,par.R) 
-  desPos := mat.DenseCopyOf(R.Slice(0, 3, 2, 3))
-  desPos.Scale(par.C[4], desPos)
-  desPos.Sub(pos, desPos) // pos - c4 * R * [0 0 1]^T
+func (par *Ik6_Geometry) IkFull(rot, pos *mat.Matrix) {
+  // axis intersection point 
+  R := mat.Mul(rot, par.R) 
+  //desPos := mat.DenseCopyOf(R.Slice(0, 3, 2, 3))
+  desPos := pos.Copy()
+  desPos.Sub(R.Col(2).Copy().Xk(par.C[4]))
+  //desPos.Xk(par.C[4])
+  //desPos.Sub(pos, desPos) // pos - c4 * R * [0 0 1]^T
 
   // auxilary
-  cx, cy, cz := desPos.At(0, 0), desPos.At(1, 0), desPos.At(2, 0)
+  cx, cy, cz := desPos.Get(0, 0), desPos.Get(1, 0), desPos.Get(2, 0)
   nx := math.Sqrt(cx*cx+cy*cy-par.B*par.B) - par.A[1]
   s1 := nx*nx + (cz-par.C[1])*(cz-par.C[1])
   s2 := (nx+2*par.A[1])*(nx+2*par.A[1]) + (cz-par.C[1])*(cz-par.C[1])
@@ -78,44 +82,32 @@ func (par *Ik6_Geometry) IkFull(rot, pos *mat.Dense) {
 
   // joint 4
   for col := 0; col < 3; col++ {
-    //cos1 := math.Cos(res.At(0, col))
-    //sin1 := math.Sin(res.At(0, col))
-    sin1, cos1 := math.Sincos(res.At(0,col))
-    //cos23 := math.Cos(res.At(1, col) + res.At(2, col))
-    //sin23 := math.Sin(res.At(1, col) + res.At(2, col))
-    sin23, cos23 := math.Sincos(res.At(1, col) + res.At(2, col))
-    res.Set(3, col, math.Atan2(R.At(1, 2)*cos1-R.At(0, 2)*sin1, R.At(0, 2)*cos23*cos1+R.At(1, 2)*cos23*sin1-R.At(2, 2)*sin23))
-    res.Set(3, 4+col, res.At(3, col)+math.Pi)
+    sin1, cos1 := math.Sincos(res.Get(0,col))
+    sin23, cos23 := math.Sincos(res.Get(1, col) + res.Get(2, col))
+    res.Set(3, col, math.Atan2(R.Get(1, 2)*cos1-R.Get(0, 2)*sin1, R.Get(0, 2)*cos23*cos1+R.Get(1, 2)*cos23*sin1-R.Get(2, 2)*sin23))
+    res.Set(3, 4+col, res.Get(3, col)+math.Pi)
   }
   // joint 5
   for col := 0; col < 3; col++ {
-    //cos1 := math.Cos(res.At(0, col))
-    //sin1 := math.Sin(res.At(0, col))
-    sin1, cos1 := math.Sincos(res.At(0, col))
-    //cos23 := math.Cos(res.At(1, col) + res.At(2, col))
-    //sin23 := math.Sin(res.At(1, col) + res.At(2, col))
-    sin23, cos23 := math.Sincos(res.At(1, col) + res.At(2, col))
-    mp := R.At(0, 2)*sin23*cos1 + R.At(1, 2)*sin23*sin1 + R.At(2, 2)*cos23
+    sin1, cos1 := math.Sincos(res.Get(0, col))
+    sin23, cos23 := math.Sincos(res.Get(1, col) + res.Get(2, col))
+    mp := R.Get(0, 2)*sin23*cos1 + R.Get(1, 2)*sin23*sin1 + R.Get(2, 2)*cos23
     res.Set(4, col, math.Atan2(math.Sqrt(1-mp*mp), mp))
-    res.Set(4, 4+col, -res.At(4, col))
+    res.Set(4, 4+col, -res.Get(4, col))
   }
   // joint 6
   for col := 0; col < 3; col++ {
-    //cos1 := math.Cos(res.At(0, col))
-    //sin1 := math.Sin(res.At(0, col))
-    sin1, cos1 := math.Sincos(res.At(0, col))
-    //cos23 := math.Cos(res.At(1, col) + res.At(2, col))
-    //sin23 := math.Sin(res.At(1, col) + res.At(2, col))
-    sin23, cos23 := math.Sincos(res.At(1, col) + res.At(2, col))
-    res.Set(5, col, math.Atan2(R.At(0, 1)*sin23*cos1+R.At(1, 1)*sin23*sin1+R.At(2, 1)*cos23, -R.At(0, 0)*sin23*cos1-R.At(1, 0)*sin23*sin1-R.At(2, 0)*cos23))
-    res.Set(5, 4+col, res.At(5, col)-math.Pi)
+    sin1, cos1 := math.Sincos(res.Get(0, col))
+    sin23, cos23 := math.Sincos(res.Get(1, col) + res.Get(2, col))
+    res.Set(5, col, math.Atan2(R.Get(0, 1)*sin23*cos1+R.Get(1, 1)*sin23*sin1+R.Get(2, 1)*cos23, -R.Get(0, 0)*sin23*cos1-R.Get(1, 0)*sin23*sin1-R.Get(2, 0)*cos23))
+    res.Set(5, 4+col, res.Get(5, col)-math.Pi)
   }
   
   // update joint state 
   pi2 := 2*math.Pi
   for c := 0; c < 8; c++ {
     for r := 0; r < 6; r++ {
-      q := par.Q.At(r,c)
+      q := par.Q.Get(r,c)
       if math.IsNaN(q) {
         continue 
       }      
@@ -144,7 +136,7 @@ func (par *Ik6_Geometry) Closest(prev []float64) int {
   for c := 0; c < 8; c++ {     // at most 8 solutions
     diff := 0.0
     for r := 0; r < 6; r++ {   // for 6 joint robot only
-      q := par.Q.At(r,c)
+      q := par.Q.Get(r,c)
       if math.IsNaN(q) {
         diff = math.Inf(1)
         continue 
@@ -173,7 +165,7 @@ func (par *Ik6_Geometry) ClosestTo(qs map[string][]float64) int {
 // Save solution into joint map 
 func (par *Ik6_Geometry) SetTo(qs map[string][]float64, col int) {
   for i,nm := range par.Name {
-    qs[nm][0] = par.Q.At(i,col) 
+    qs[nm][0] = par.Q.Get(i,col) 
   }
 }
 
@@ -203,24 +195,24 @@ func (base *Link) FindIk6Param(ee *Link) *Ik6_Geometry {
   base.UpdateState(qs) 
   // a1, c1 
   pos := mov[1].Child.State.Pos   // second joint position 
-  par.A[1] = pos.At(0,0)
-  par.C[1] = pos.At(2,0)
+  par.A[1] = pos.Get(0,0)
+  par.C[1] = pos.Get(2,0)
   // c2 
-  var diff mat.Dense 
+  var diff mat.Matrix 
   diff.Sub(mov[2].Child.State.Pos,pos)
-  par.C[2] = diff.At(2,0)
+  par.C[2] = diff.Get(2,0)
   // c3, a2 
   pos = mov[4].Child.State.Pos
   diff.Sub(pos,mov[2].Child.State.Pos) 
-  par.C[3] = diff.At(2,0)
-  par.A[2] = diff.At(0,0) 
+  par.C[3] = diff.Get(2,0)
+  par.A[2] = diff.Get(0,0) 
   // c4, b 
   diff.Sub(ee.State.Pos, pos)
-  par.C[4] = diff.At(2,0)
-  par.B = -pos.At(1,0) 
+  par.C[4] = diff.Get(2,0)
+  par.B = -pos.Get(1,0) 
   
-  par.Q = mat.NewDense(6,8,nil) 
-  par.R = mat.DenseCopyOf(ee.State.Rot.T()) 
+  par.Q = mat.New(6,8,nil) 
+  par.R = ee.State.Rot.T().Copy() 
   
   return &par 
 }

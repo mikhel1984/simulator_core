@@ -243,8 +243,14 @@ func (p *Profile) AtScale(k, factor float64, res []float64) float64 {
 // q - current state, return new state here
 // bool - result of evaluation
 
-//func (base *Link) LinRot(qBeg []float64, pEnd, rEnd *mat.Dense, n int, 
-//              func ik(*mat.Dense, *mat.Dense, []float64) bool) Path {
-//  var pt Path 
-//  
+// use model in initial state 
+//func (base *Link) LinRot(jLst []*Joint, pEnd, rEnd *mat.Dense, n int, 
+//              func ik(*mat.Dense, *mat.Dense, []float64) bool) (*Path,bool) {
+   
+   // 
+   
+   
+   
+   //qs := make([]float64, len(jLst)) 
+  
 //}

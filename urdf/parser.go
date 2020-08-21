@@ -23,15 +23,6 @@ type Model struct {
   Links  []Link    `xml:"link"`
 }
 
-/* func (m *Model) ParseData() {
-  for i := 0; i < len(m.Joints); i++ {
-    m.Joints[i].parseData()
-  }
-  for i := 0; i < len(m.Links); i++ {
-    m.Links[i].parseData() 
-  }
-}
- */
 type Joint struct {
   XMLName xml.Name `xml:"joint"` 
   Type    string   `xml:"type,attr"`
@@ -53,13 +44,6 @@ func (v *Joint) Get6ikDeflection() (float64, bool) {
   return num, true 
 }
 
-/* func (v *Joint) parseData() {
-  v.Origin.parseData()
-  v.Axis.parseData() 
-  v.Limit.parseData() 
-  v.Dynamics.parseData()
-} */
-
 type Origin_ struct {
   XMLName xml.Name `xml:"origin"`
   Xyz     string   `xml:"xyz,attr"`
@@ -73,11 +57,6 @@ func (v *Joint) GetXyz() []float64 {
 func (v *Joint) GetRpy() []float64 {
   return stringToList(v.Origin.Rpy) 
 }
-
-/* func (v *Origin_) parseData() {
-  v.Xyz = stringToList(v.xyz) 
-  v.Rpy = stringToList(v.rpy)
-} */
 
 type Parent struct {
   XMLName xml.Name `xml:"parent"`
@@ -118,23 +97,11 @@ func (v *Joint) GetLimits() (float64,float64) {
   return lo, up
 }
 
-/* func (v *Limit_) parseData() {
-  v.Effort,_ = strconv.ParseFloat(v.effort,64)
-  v.Lower,_ = strconv.ParseFloat(v.lower,64)
-  v.Upper,_ = strconv.ParseFloat(v.upper,64)
-  v.Velocity,_ = strconv.ParseFloat(v.velocity,64)
-}
- */
 type Dynamics struct {
   XMLName  xml.Name `xml:"dynamics"`
   Damping  string   `xml:"damping,attr"`
   Friction string  `xml:"friction,attr"`
 }
-
-/* func (v *Dynamics) parseData() {
-  v.Damping,_ = strconv.ParseFloat(v.damping,64)
-  v.Friction,_ = strconv.ParseFloat(v.friction,64)
-} */
 
 type Link struct {
   XMLName xml.Name `xml:"link"`
@@ -164,31 +131,17 @@ func (l *Link) GetInertia() []float64 {
   return res 
 }
 
-/* func (l *Link) parseData() {
-  l.Visual.parseData()
-  l.Collision.parseData()
-  l.Inertial.parseData() 
-}
- */
 type Visual struct {
   XMLName xml.Name `xml:"visual"`
   Origin  Origin_   `xml:"origin"`
   Geometry Geometry `xml:"geometry"` 
 }
 
-/* func (v *Visual) parseData() {
-  v.Origin.parseData()
-} */
-
 type Collision struct {
   XMLName xml.Name `xml:"collision"`
   Origin  Origin_   `xml:"origin"`
   Geometry Geometry `xml:"geometry"` 
 }
-
-/* func (v *Collision) parseData() {
-  v.Origin.parseData() 
-} */
 
 type Geometry struct {
   XMLName xml.Name `xml:"geometry"` 
@@ -207,20 +160,10 @@ type Inertial_ struct {
   Inertia Inertia  `xml:"inertia"` 
 }
 
-/* func (v *Inertial) parseData() {
-  v.Mass.parseData()
-  v.Origin.parseData()
-  v.Inertia.parseData() 
-} */
-
 type Mass_ struct {
   XMLName xml.Name `xml:"mass"`
   Value   string   `xml:"value,attr"`
 }
-
-/* func (v *Mass) parseData() {
-  v.Value,_ = strconv.ParseFloat(v.value,64) 
-} */
 
 type Inertia struct {
   XMLName xml.Name `xml:"inertia"`
@@ -231,7 +174,6 @@ type Inertia struct {
   Iyz     string   `xml:"iyz,attr"`
   Izz     string   `xml:"izz,attr"`  
 }
-
 
 
 /* func (v *Inertia) parseData() {

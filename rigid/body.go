@@ -2,8 +2,9 @@ package rigid
 
 import (
   "../urdf" 
-  "gonum.org/v1/gonum/mat"
+  //"gonum.org/v1/gonum/mat"
   //"fmt"
+  "../mat"
 )
 
 type Link struct {
@@ -21,8 +22,8 @@ type Link struct {
 
 // Inertial parameters of link 
 type Inertial struct {
-  I     *mat.Dense   // inertia matrix 
-  Rc    *mat.Dense   // mass center 
+  I     *mat.Matrix   // inertia matrix 
+  Rc    *mat.Matrix   // mass center 
   M     float64      // link mass 
 }
 
@@ -51,9 +52,9 @@ func linkFromModel(m *urdf.Link) *Link {
   
   // inertial parameters 
   lnk.Dyn.M = m.GetMass()  
-  lnk.Dyn.Rc = mat.NewDense(3,1, m.GetMassCenter()) 
+  lnk.Dyn.Rc = mat.New(3,1, m.GetMassCenter()) 
   ii := m.GetInertia() 
-  lnk.Dyn.I = mat.NewDense(3,3, []float64 {
+  lnk.Dyn.I = mat.New(3,3, []float64 {
       ii[0],ii[1],ii[2],
       ii[1],ii[3],ii[4],
       ii[2],ii[4],ii[5]})
@@ -99,7 +100,7 @@ func (v *Link) Predecessors() []*Joint {
 }
 
 // Calculate Jacobian matrix 
-func (ee *Link) Jacobian(mov []*Joint) *mat.Dense {
+func (ee *Link) Jacobian(mov []*Joint) *mat.Matrix {
   if mov == nil {
     mov = ee.Predecessors()
   }
@@ -125,42 +126,43 @@ func (v *Link) Find(name string) *Link {
 }
 
 // Use recursive Newton-Euler dymanic calculation
-func (v *Link) rnea(w, dw, ae *mat.Dense) (*mat.Dense,*mat.Dense) {
+func (v *Link) rnea(w, dw, ae *mat.Matrix) (*mat.Matrix,*mat.Matrix) {
   jnt := v.Parent 
   wi, dwi := jnt.getAngularAcc(w,dw) 
   aci := jnt.getLinearAcc(ae, wi, dwi, v.Dyn.Rc) 
   // force / torque
-  var fi, taui, tmp, fc mat.Dense
+  var fi mat.Matrix
   fi.Scale(v.Dyn.M,aci)
-  taui.Mul(v.Dyn.I,dwi)
-  tmp.Mul(v.Dyn.I,wi);   taui.Add(&taui,Cross(wi,&tmp))
+  taui := mat.Mul(v.Dyn.I,dwi)
+  tmp := mat.Mul(v.Dyn.I,wi);   taui.Add(wi.Cross(tmp))
   // children 
   for _,jc := range v.Joints {
     aei := jnt.getLinearAcc(ae,wi,dwi, jc.Local.Pos) 
     f, tau := jc.Child.rnea(wi,dwi,aei)
     // force    
-    fc.Mul(jc.Local.Rot,f)
-    fi.Add(&fi,&fc)
+    fc := mat.Mul(jc.Local.Rot,f)
+    (&fi).Add(fc)
     // torque
-    tmp.Mul(jc.Local.Rot, tau);     taui.Add(&taui,&tmp)
-    tmp.Sub(v.Dyn.Rc,jc.Local.Pos); taui.Add(&taui,Cross(&fc,&tmp))
+    tmp := mat.Mul(jc.Local.Rot, tau);     taui.Add(tmp)
+    tmp = v.Dyn.Rc.Copy()
+    tmp.Sub(jc.Local.Pos); taui.Add(fc.Cross(tmp))
   }
-  taui.Sub(&taui,Cross(&fi,v.Dyn.Rc))
+  taui.Sub(fi.Cross(v.Dyn.Rc))
 
   if jnt != nil {
     switch jnt.Type {
     case joint_Rx, joint_Ry, joint_Rz:
-      jnt.Tau = taui.At(int(jnt.Type)-3,0)
+      jnt.Tau = taui.Get(int(jnt.Type)-3,0)
     case joint_Tx, joint_Ty, joint_Tz:
-      jnt.Tau = fi.At(int(jnt.Type),0) 
+      jnt.Tau = fi.Get(int(jnt.Type),0) 
     }
     // add friction
   }  
     
-  return &fi, &taui  
+  return &fi, taui  
 }
 
-// Find dymanical state using RNEA algorithm
+// Find dynamical state using RNEA algorithm
 func (base *Link) UpdateDyn(g float64) {
   zer := zero31()
   acc := zero31()
@@ -169,8 +171,8 @@ func (base *Link) UpdateDyn(g float64) {
 }
 
 // Return joint torques in form of vector
-func ReadTorques(mov []*Joint) *mat.Dense {
-  res := mat.NewDense(len(mov),1,nil)
+func ReadTorques(mov []*Joint) *mat.Matrix {
+  res := mat.New(len(mov),1,nil)
   for i,v := range mov {
     res.Set(i,0, v.Tau)
   }
@@ -196,7 +198,7 @@ type Joint struct {
   Local         Transform     // rotation from current to next 
   Limit         [2]float64
   //Rij           *mat.Dense    // from current to next joint 
-  Axis          *mat.Dense    // joint axis 
+  Axis          *mat.Matrix    // joint axis 
   // dynamics 
   Tau           float64 
 }
@@ -239,10 +241,10 @@ func jointFromModel(m *urdf.Joint) *Joint {
   v = m.GetRpy()
   jnt.Trans.Rot = RPY(v[0],v[1],v[2])
   // local transformation 
-  jnt.Local.Rot = eye33()  
-  jnt.Local.Rot.Copy(jnt.Trans.Rot) 
-  jnt.Local.Pos = zero31()
-  jnt.Local.Pos.Copy(jnt.Trans.Pos)
+  //jnt.Local.Rot = eye33()  
+  jnt.Local.Rot = jnt.Trans.Rot.Copy()
+  //jnt.Local.Pos = zero31()
+  jnt.Local.Pos = jnt.Trans.Pos.Copy()
   jnt.Axis = getJointAxis(jnt.Type)
   return jnt
 }
@@ -251,50 +253,53 @@ func jointFromModel(m *urdf.Joint) *Joint {
 func (jnt *Joint) UpdateLocal(q float64) {
   switch jnt.Type {
   case joint_Rx:
-    jnt.Local.Rot.Mul(jnt.Trans.Rot, Rx(q))
+    jnt.Local.Rot = mat.Mul(jnt.Trans.Rot, Rx(q))
   case joint_Ry:
-    jnt.Local.Rot.Mul(jnt.Trans.Rot, Ry(q))
+    jnt.Local.Rot = mat.Mul(jnt.Trans.Rot, Ry(q))
   case joint_Rz:
-    jnt.Local.Rot.Mul(jnt.Trans.Rot, Rz(q))
+    jnt.Local.Rot = mat.Mul(jnt.Trans.Rot, Rz(q))
   case joint_Tx:
-    jnt.Local.Pos.Add(jnt.Trans.Pos, Txyz(q,0,0))
+    jnt.Local.Pos.CopyFrom(jnt.Trans.Pos)
+    jnt.Local.Pos.Add(Txyz(q,0,0))
   case joint_Ty:
-    jnt.Local.Pos.Add(jnt.Trans.Pos, Txyz(0,q,0))
+    jnt.Local.Pos.CopyFrom(jnt.Trans.Pos)
+    jnt.Local.Pos.Add(Txyz(0,q,0))
   case joint_Tz:
-    jnt.Local.Pos.Add(jnt.Trans.Pos, Txyz(0,0,q))
+    jnt.Local.Pos.CopyFrom(jnt.Trans.Pos)
+    jnt.Local.Pos.Add(Txyz(0,0,q))
   }
 }
 
-func (jnt *Joint) getAngularAcc(wp, dwp *mat.Dense) (*mat.Dense,*mat.Dense) {
+func (jnt *Joint) getAngularAcc(wp, dwp *mat.Matrix) (*mat.Matrix,*mat.Matrix) {
   if jnt == nil {
     return wp, dwp 
   }
-  var wi, dwi, zqd, zq2d mat.Dense 
+  var zqd, zq2d mat.Matrix 
   zqd.Scale(jnt.Vel, jnt.Axis)
   zq2d.Scale(jnt.Acc, jnt.Axis)
   Rt := jnt.Local.Rot.T()  
-  wi.Mul(Rt, wp)
-  dwi.Mul(Rt, dwp) 
+  wi := mat.Mul(Rt, wp)
+  dwi := mat.Mul(Rt, dwp) 
   switch jnt.Type {
   case joint_Rx, joint_Ry, joint_Rz:
-    wi.Add(&wi, &zqd) 
-    dwi.Add(&dwi, &zq2d)
-    dwi.Add(&dwi, Cross(&wi, &zqd))
+    wi.Add(&zqd) 
+    dwi.Add(&zq2d)
+    dwi.Add(wi.Cross(&zqd))
   }
-  return &wi, &dwi
+  return wi, dwi
 }
 
-func (jnt *Joint) getLinearAcc(ap, wi, dwi, r *mat.Dense) *mat.Dense {
-   var ai mat.Dense   
+func (jnt *Joint) getLinearAcc(ap, wi, dwi, r *mat.Matrix) *mat.Matrix {
+   var ai *mat.Matrix   
   // TODO: write for prismatic joint
   if jnt != nil {
-    ai.Mul(jnt.Local.Rot.T(), ap)
+    ai := mat.Mul(jnt.Local.Rot.T(), ap)
   } else {
-    ai.Scale(1,ap)
+    ai := ap.Copy()
   }
-  ai.Add(&ai, Cross(dwi,r))
-  ai.Add(&ai, Cross(wi,Cross(wi,r)))
-  return &ai 
+  ai.Add(dwi.Cross(r))
+  ai.Add(wi.Cross(wi.Cross(r)))
+  return ai 
 }
 
 func (jnt *Joint) InRange(q float64) bool {
@@ -302,16 +307,16 @@ func (jnt *Joint) InRange(q float64) bool {
 }
 
 
-func getJointAxis(tp JointType) *mat.Dense {
+func getJointAxis(tp JointType) *mat.Matrix {
   switch tp {
   case joint_Tx, joint_Rx:
-    return mat.NewDense(3,1, []float64{1,0,0})
+    return mat.New(3,1, []float64{1,0,0})
   case joint_Ty, joint_Ry:
-    return mat.NewDense(3,1, []float64{0,1,0})
+    return mat.New(3,1, []float64{0,1,0})
   case joint_Tz, joint_Rz:
-    return mat.NewDense(3,1, []float64{0,0,1})  
+    return mat.New(3,1, []float64{0,0,1})  
   }
-  return mat.NewDense(3,1, []float64{0,0,0}) 
+  return mat.New(3,1, []float64{0,0,0}) 
 }
 
 func MakeJointMap(mov []*Joint) map[string][]float64 {
