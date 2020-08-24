@@ -3,7 +3,7 @@ package rigid
 import (
   //"gonum.org/v1/gonum/mat"  
   "math"
-  "fmt"
+  //"fmt"
   "../mat"
 )
 
@@ -46,8 +46,8 @@ func (t *Transform) Reset() {
 
 // Copy Transform object 
 func (t *Transform) Set(src *Transform) {
-  t.Rot.Copy(src.Rot)
-  t.Pos.Copy(src.Copy)
+  t.Rot.CopyFrom(src.Rot)
+  t.Pos.CopyFrom(src.Pos)
 }
 
 // Update state using the given transformation 
@@ -100,15 +100,19 @@ func Cross(a,b mat.Matrix) *mat.Dense {
 func (t *Transform) toColumn(m *mat.Matrix, col int, tp JointType, ee *mat.Matrix) {  
   switch tp {
   case joint_Tx, joint_Ty, joint_Tz:    
-    z := t.Rot.Slice(0,3, int(tp), int(tp)+1)
-    matInsert(0,col, m, z)
+    //z := t.Rot.Slice(0,3, int(tp), int(tp)+1)
+    //matInsert(0,col, m, z)
+    m.Block(0,col,3,1).Insert(t.Rot.Block(0,int(tp),3,1))
   case joint_Rx, joint_Ry, joint_Rz:
-    z := t.Rot.Slice(0,3, int(tp)-3, int(tp)-2)
-    matInsert(3,col, m, z)
-    var tmp mat.Dense 
-    tmp.Sub(ee, t.Pos)
-    w := Cross(z, &tmp)
-    matInsert(0,col, m, w)
+    //z := t.Rot.Slice(0,3, int(tp)-3, int(tp)-2)
+    //matInsert(3,col, m, z)
+    z := t.Rot.Block(0,3,3,1)
+    m.Block(3,col,3,1).Insert(z)
+    tmp := ee.Copy()    
+    tmp.Sub(t.Pos)
+    w := z.Copy().Cross(tmp)
+    m.Block(0,col,3,1).Insert(w)
+    //matInsert(0,col, m, w)
   }
 }
 
@@ -162,10 +166,10 @@ func Txyz(x,y,z float64) *mat.Matrix {
 }
 
 func toAA(m *mat.Matrix) (float64,[]float64,bool) {
-  r11, r22, r33 := m.At(0,0), m.At(1,1), m.At(2,2)
-  rx := m.At(2,1)-m.At(1,2)
-  ry := m.At(0,2)-m.At(2,0)
-  rz := m.At(1,0)-m.At(0,1)
+  r11, r22, r33 := m.Get(0,0), m.Get(1,1), m.Get(2,2)
+  rx := m.Get(2,1)-m.Get(1,2)
+  ry := m.Get(0,2)-m.Get(2,0)
+  rz := m.Get(1,0)-m.Get(0,1)
   theta := math.Atan2(math.Sqrt(rx*rx+ry*ry+rz*rz), r11+r22+r33-1)
   // no rotation axis when zero
   if math.Abs(theta) < 1E-10 {
@@ -204,7 +208,7 @@ func jacEmpty(cols int) *mat.Matrix {
   return mat.New(6,cols,nil)
 }
 
-type Ode func(float64,*mat.Dense) *mat.Dense 
+type Ode func(float64,*mat.Matrix) *mat.Matrix 
 
 func OdeSolver(fn Ode, t0 float64, x0 *mat.Matrix, step, tn float64) *mat.Matrix {
   var xn, tmp mat.Matrix 

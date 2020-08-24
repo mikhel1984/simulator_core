@@ -293,9 +293,9 @@ func (jnt *Joint) getLinearAcc(ap, wi, dwi, r *mat.Matrix) *mat.Matrix {
    var ai *mat.Matrix   
   // TODO: write for prismatic joint
   if jnt != nil {
-    ai := mat.Mul(jnt.Local.Rot.T(), ap)
+    ai = mat.Mul(jnt.Local.Rot.T(), ap)
   } else {
-    ai := ap.Copy()
+    ai = ap.Copy()
   }
   ai.Add(dwi.Cross(r))
   ai.Add(wi.Cross(wi.Cross(r)))

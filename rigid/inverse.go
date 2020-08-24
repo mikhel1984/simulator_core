@@ -198,16 +198,18 @@ func (base *Link) FindIk6Param(ee *Link) *Ik6_Geometry {
   par.A[1] = pos.Get(0,0)
   par.C[1] = pos.Get(2,0)
   // c2 
-  var diff mat.Matrix 
-  diff.Sub(mov[2].Child.State.Pos,pos)
+  diff := mov[2].Child.State.Pos.Copy() 
+  diff.Sub(pos)
   par.C[2] = diff.Get(2,0)
   // c3, a2 
-  pos = mov[4].Child.State.Pos
-  diff.Sub(pos,mov[2].Child.State.Pos) 
+  //pos = mov[4].Child.State.Pos
+  diff = mov[4].Child.State.Pos.Copy()
+  diff.Sub(mov[2].Child.State.Pos) 
   par.C[3] = diff.Get(2,0)
   par.A[2] = diff.Get(0,0) 
   // c4, b 
-  diff.Sub(ee.State.Pos, pos)
+  diff = ee.State.Pos.Copy()
+  diff.Sub(mov[4].Child.State.Pos)
   par.C[4] = diff.Get(2,0)
   par.B = -pos.Get(1,0) 
   
