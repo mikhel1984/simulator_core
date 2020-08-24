@@ -270,23 +270,25 @@ func (jnt *Joint) UpdateLocal(q float64) {
   }
 }
 
-func (jnt *Joint) getAngularAcc(wp, dwp *mat.Matrix) (*mat.Matrix,*mat.Matrix) {
+func (jnt *Joint) getAngularAcc(wp, dwp *mat.Matrix) (wi ,dwi *mat.Matrix) {
   if jnt == nil {
-    return wp, dwp 
+    wi, dwi = wp, dwp
+    return
   }
   var zqd, zq2d mat.Matrix 
   zqd.Scale(jnt.Vel, jnt.Axis)
   zq2d.Scale(jnt.Acc, jnt.Axis)
-  Rt := jnt.Local.Rot.T()  
-  wi := mat.Mul(Rt, wp)
-  dwi := mat.Mul(Rt, dwp) 
+  Rt := jnt.Local.Rot.T()
+  wi = mat.Mul(Rt, wp)
+  dwi = mat.Mul(Rt, dwp) 
+ 
   switch jnt.Type {
   case joint_Rx, joint_Ry, joint_Rz:
     wi.Add(&zqd) 
     dwi.Add(&zq2d)
     dwi.Add(wi.Cross(&zqd))
   }
-  return wi, dwi
+  return
 }
 
 func (jnt *Joint) getLinearAcc(ap, wi, dwi, r *mat.Matrix) *mat.Matrix {

@@ -144,6 +144,8 @@ func (m *Matrix) Xk(k float64) *Matrix {
 func (m *Matrix) Scale(k float64, src *Matrix) {
   if m.data == nil {
     m.data = make([]float64, len(src.data)) 
+    m.rows = src.rows
+    m.cols = src.cols
   }
   if len(m.data) != len(src.data) {
     panic("Matrix: different size")

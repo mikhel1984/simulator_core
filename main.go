@@ -39,18 +39,15 @@ func main() {
   ee := base.Find("link7") 
     
   base.UpdateState(qs)
-  ee.State.Rot.Print()
-  ee.State.Pos.Print()
-  //rigid.MatPrint(ee.State.Rot)
-  //fmt.Println("")
-  //rigid.MatPrint(ee.State.Pos) 
+  //ee.State.Rot.Print()
+  //ee.State.Pos.Print()
   
-  //lst := ee.Predecessors() 
+  lst := ee.Predecessors() 
   //jac := ee.Jacobian(lst) 
-  //rigid.MatPrint(jac) 
-  //base.UpdateDyn(9.81) 
-  //tau := rigid.ReadTorques(lst) 
-  //rigid.MatPrint(tau)
+  //jac.Print()
+  base.UpdateDyn(9.81) 
+  tau := rigid.ReadTorques(lst) 
+  tau.Print()
   
   // inverse kinematics 
   //prev := rigid.MakeJointMap(lst)  

@@ -100,19 +100,14 @@ func Cross(a,b mat.Matrix) *mat.Dense {
 func (t *Transform) toColumn(m *mat.Matrix, col int, tp JointType, ee *mat.Matrix) {  
   switch tp {
   case joint_Tx, joint_Ty, joint_Tz:    
-    //z := t.Rot.Slice(0,3, int(tp), int(tp)+1)
-    //matInsert(0,col, m, z)
-    m.Block(0,col,3,1).Insert(t.Rot.Block(0,int(tp),3,1))
+    m.Block(0,col,3,1).Insert(t.Rot.Col(int(tp)))
   case joint_Rx, joint_Ry, joint_Rz:
-    //z := t.Rot.Slice(0,3, int(tp)-3, int(tp)-2)
-    //matInsert(3,col, m, z)
-    z := t.Rot.Block(0,3,3,1)
+    z := t.Rot.Col(int(tp)-3)
     m.Block(3,col,3,1).Insert(z)
     tmp := ee.Copy()    
     tmp.Sub(t.Pos)
     w := z.Copy().Cross(tmp)
     m.Block(0,col,3,1).Insert(w)
-    //matInsert(0,col, m, w)
   }
 }
 
